@@ -4,7 +4,8 @@
     "jsx": "preserve",
     "jsxImportSource": "@solidjs/web",
     "types": [
-      "vite/client"
+      "vite/client",
+      "node"
     ]
   },
   "include": [

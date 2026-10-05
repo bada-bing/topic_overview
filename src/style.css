@@ -1,0 +1,56 @@
+:root {
+  --text: #1f2328;
+  --muted: #656d76;
+  --background: #ffffff;
+  --rule: #d0d7de;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--background);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6edf3;
+    --muted: #8d96a0;
+    --background: #0d1117;
+    --rule: #30363d;
+  }
+}
+
+body {
+  margin: 0 auto;
+  max-width: 900px;
+  padding: 16px;
+}
+
+.discussion-header {
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.blocks {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.blocks .blocks {
+  padding-left: 20px;
+  border-left: 1px solid var(--rule);
+}
+
+.paragraph {
+  margin: 4px 0;
+  white-space: pre-wrap;
+}
+
+.heading {
+  margin: 16px 0 4px;
+}
+
+.error {
+  color: #cf222e;
+}

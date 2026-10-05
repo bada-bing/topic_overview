@@ -57,6 +57,10 @@ test("a page is parsed into nested blocks with ids, headings and frontmatter", (
   assert.deepEqual(validatePage(page), []);
 });
 
+test("a reference inside code is text, not a relation", () => {
+  assert.deepEqual(validatePage(parsePage("- write `((b7))` to relate\n  id:: a\n")), []);
+});
+
 test("an invalid page reports every problem", () => {
   const problems = validatePage(parsePage("- no id\n- twice\n  id:: x\n- again\n  id:: x\n- see ((y))\n  id:: z\n"));
   assert.equal(problems.length, 3);

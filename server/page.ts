@@ -55,7 +55,10 @@ export function parsePage(source: string): Page {
       if (property[1] === "id") current.id = property[2].trim();
       else current.properties[property[1]] = property[2];
     } else {
-      current.text += "\n" + line.trim();
+      // A continuation line is indented by its block's tabs and two spaces;
+      // anything beyond that is the text's own, as in a code block.
+      const depth = stack[stack.length - 1].depth;
+      current.text += "\n" + line.replace(new RegExp(`^\\t{0,${depth}} {0,2}`), "");
     }
   }
 
@@ -77,8 +80,11 @@ export function* walk(blocks: Block[]): Generator<Block> {
   }
 }
 
+// A reference written inside code, such as `((b7))` in a sentence about the
+// syntax, is text and not a relation.
 export function references(text: string): string[] {
-  return [...text.matchAll(REFERENCE)].map((match) => match[1]);
+  const prose = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+  return [...prose.matchAll(REFERENCE)].map((match) => match[1]);
 }
 
 // A page is valid when every block has an id, no id repeats, and every
@@ -105,4 +111,25 @@ export function validatePage(page: Page): string[] {
 function excerpt(text: string): string {
   const line = text.split("\n")[0];
   return line.length > 60 ? line.slice(0, 57) + "..." : line;
+}
+
+// Writes a page back in the same conventions it is read in, with every
+// block's id as its first property.
+export function serializePage(page: Page): string {
+  const lines: string[] = [];
+  if (page.frontmatter) lines.push("---", page.frontmatter, "---");
+  const write = (blocks: Block[], depth: number) => {
+    const indent = "\t".repeat(depth);
+    for (const block of blocks) {
+      const [first, ...rest] = block.text.split("\n");
+      const head = block.kind === "heading" ? `${"#".repeat(block.level ?? 1)} ${first}` : first;
+      lines.push(`${indent}- ${head}`.trimEnd());
+      for (const line of rest) lines.push(`${indent}  ${line}`);
+      lines.push(`${indent}  id:: ${block.id}`);
+      for (const [key, value] of Object.entries(block.properties)) lines.push(`${indent}  ${key}:: ${value}`);
+      write(block.children, depth + 1);
+    }
+  };
+  write(page.blocks, 0);
+  return lines.join("\n") + "\n";
 }

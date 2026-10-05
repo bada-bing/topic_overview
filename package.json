@@ -11,7 +11,8 @@
     "server": "node --watch server/main.ts",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test server/*.test.ts"
+    "test": "node --test server/*.test.ts",
+    "topic": "node server/cli.ts"
   },
   "dependencies": {
     "@solidjs/web": "2.0.0-rc.14",

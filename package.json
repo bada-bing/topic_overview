@@ -7,21 +7,15 @@
     "node": "24.20.0"
   },
   "scripts": {
-    "dev": "vite",
-    "server": "node --watch server/main.ts",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "test": "node --test server/*.test.ts",
-    "topic": "node server/cli.ts"
-  },
-  "dependencies": {
-    "@solidjs/web": "2.0.0-rc.14",
-    "solid-js": "2.0.0-rc.14"
+    "dev": "pnpm --filter @topic-overview/web dev",
+    "server": "pnpm --filter @topic-overview/server start",
+    "build": "pnpm --filter @topic-overview/web build",
+    "test": "pnpm --recursive test",
+    "typecheck": "tsc -p packages/core && tsc -p packages/server && tsc -p packages/cli && tsc -p packages/web",
+    "topic": "node packages/cli/src/main.ts"
   },
   "devDependencies": {
-    "@solidjs/vite-plugin": "3.0.0-next.49",
     "@types/node": "24.19.2",
-    "typescript": "7.0.2",
-    "vite": "8.3.4"
+    "typescript": "7.0.2"
   }
 }

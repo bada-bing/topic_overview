@@ -1,0 +1,8 @@
+{
+  "name": "@topic-overview/cli",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@topic-overview/core": "workspace:*"
+  }
+}

@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import { parsePage } from "./page.ts";
-import { Store, StoreError } from "./store.ts";
+import { parsePage } from "@topic-overview/core";
+import { Store, StoreError } from "@topic-overview/core";
 
 const HOST = "127.0.0.1";
 const PORT = 4310;

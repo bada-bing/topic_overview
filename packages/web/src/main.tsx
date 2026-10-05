@@ -2,7 +2,7 @@ import { render } from "@solidjs/web";
 import { Errored, Loading, createMemo } from "solid-js";
 
 import { Blocks } from "./components/Blocks.tsx";
-import type { DiscussionView } from "./types.ts";
+import type { DiscussionView } from "@topic-overview/core";
 import "./style.css";
 
 const ROUTE = /^\/d\/([^/]+)\/([^/]+)\/?$/;

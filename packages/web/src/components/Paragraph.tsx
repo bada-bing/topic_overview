@@ -1,4 +1,4 @@
-import type { Block } from "../types.ts";
+import type { Block } from "@topic-overview/core";
 
 // A regular block: its text, with the line breaks it was written with.
 export function Paragraph(props: { block: Block }) {

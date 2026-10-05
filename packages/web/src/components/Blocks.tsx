@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 
-import type { Block } from "../types.ts";
+import type { Block } from "@topic-overview/core";
 import { Heading } from "./Heading.tsx";
 import { Paragraph } from "./Paragraph.tsx";
 

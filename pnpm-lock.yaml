@@ -165,10 +165,36 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/cli:
+    dependencies:
+      '@topic-overview/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/core: {}
+
+  packages/server:
+    dependencies:
+      '@topic-overview/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/web:
     dependencies:
       '@solidjs/web':
         specifier: 2.0.0-rc.14
         version: 2.0.0-rc.14(solid-js@2.0.0-rc.14)
+      '@topic-overview/core':
+        specifier: workspace:*
+        version: link:../core
       solid-js:
         specifier: 2.0.0-rc.14
         version: 2.0.0-rc.14
@@ -176,12 +202,6 @@ importers:
       '@solidjs/vite-plugin':
         specifier: 3.0.0-next.49
         version: 3.0.0-next.49(@solidjs/web@2.0.0-rc.14(solid-js@2.0.0-rc.14))(solid-js@2.0.0-rc.14)(vite@8.3.4(@types/node@24.19.2))
-      '@types/node':
-        specifier: 24.19.2
-        version: 24.19.2
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
       vite:
         specifier: 8.3.4
         version: 8.3.4(@types/node@24.19.2)

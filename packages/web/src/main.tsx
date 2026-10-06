@@ -2,7 +2,7 @@ import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
 
 import type { DiscussionView } from "@topic-overview/core";
-import { walk } from "@topic-overview/core/page";
+import { labels, relations, walk } from "@topic-overview/core/page";
 
 import { Beside } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
@@ -10,6 +10,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { isSection, outline, sectionOf } from "./outline.ts";
+import { RelateContext, relatedTo } from "./relate.ts";
 import { taskHeader } from "./task.ts";
 import "./style.css";
 
@@ -27,6 +28,18 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   const entries = createMemo(() => outline(view().page.blocks));
   const owners = createMemo(() => sectionOf(view().page.blocks));
   const task = createMemo(() => taskHeader(view().page));
+  const forward = createMemo(() => relations(view().page));
+  const labelled = createMemo(() => labels(view().page));
+  // The block the pointer is on, and the blocks tinted because they relate to it.
+  const [pointed, setPointed] = createSignal<string | undefined>(undefined);
+  const tinted = createMemo(() => {
+    const id = pointed();
+    return id ? relatedTo(id, forward()) : new Set<string>();
+  });
+  const onPointer = (event: PointerEvent) => {
+    const id = (event.target as Element).closest?.("[data-block]")?.getAttribute("data-block") ?? undefined;
+    if (id !== pointed()) setPointed(id);
+  };
   const discussionLine = () =>
     `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
   const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
@@ -73,7 +86,12 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   return (
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
-        <div class={["layout", { "with-beside": !!besideBlock() }]}>
+        <RelateContext value={{ pointed, tinted, labels: labelled }}>
+        <div
+          class={["layout", { "with-beside": !!besideBlock() }]}
+          onPointerOver={onPointer}
+          onPointerLeave={() => setPointed(undefined)}
+        >
           <aside class="sidebar">
             <Outline entries={entries()} open={open()} beside={beside()} onBeside={(id) => setBeside(id)} />
           </aside>
@@ -104,6 +122,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
           </div>
           <Show when={besideBlock()}>{(block) => <Beside block={block()} onClose={() => setBeside(undefined)} />}</Show>
         </div>
+        </RelateContext>
       </Loading>
     </Errored>
   );

@@ -133,3 +133,36 @@ export function serializePage(page: Page): string {
   write(page.blocks, 0);
   return lines.join("\n") + "\n";
 }
+
+// A label names a numbered line: capitals and a number followed by a colon
+// at the start of a block, such as `R2:` or `REQ7:`. A mention of the label
+// elsewhere, such as `(R2)`, relates to that block.
+export const LABEL = /^([A-Z]{1,4}\d+):/;
+export const MENTION = /\b([A-Z]{1,4}\d+)\b/g;
+
+export function labels(page: Page): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const block of walk(page.blocks)) {
+    const label = LABEL.exec(block.text);
+    if (label && !found.has(label[1])) found.set(label[1], block.id);
+  }
+  return found;
+}
+
+// Every block's relations: the blocks it references, by `((id))` or by
+// mentioning a label. Code is text, so nothing inside it relates.
+export function relations(page: Page): Map<string, Set<string>> {
+  const byLabel = labels(page);
+  const related = new Map<string, Set<string>>();
+  for (const block of walk(page.blocks)) {
+    const targets = new Set(references(block.text));
+    const prose = block.text.replace(LABEL, "").replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+    for (const mention of prose.matchAll(MENTION)) {
+      const target = byLabel.get(mention[1]);
+      if (target) targets.add(target);
+    }
+    targets.delete(block.id);
+    if (targets.size > 0) related.set(block.id, targets);
+  }
+  return related;
+}

@@ -8,6 +8,8 @@
   --done: #1a7f37;
   --now: #bf8700;
   --now-tint: #fff8c5;
+  --tint: #ddf4ff;
+  --tint-edge: #54aeff;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
   color: var(--text);
@@ -25,6 +27,8 @@
     --done: #3fb950;
     --now: #d29922;
     --now-tint: #2e2a1c;
+    --tint: #12263f;
+    --tint-edge: #1f6feb;
   }
 }
 
@@ -350,6 +354,24 @@ a {
 .state-later .marker {
   border: 1px solid var(--rule);
   color: var(--muted);
+}
+
+.tinted {
+  background: var(--tint);
+  border-radius: 4px;
+}
+
+.pointed.tinted,
+.paragraph.pointed,
+.heading.pointed {
+  outline: 1px solid var(--tint-edge);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.mention {
+  text-decoration: none;
+  border-bottom: 1px dotted var(--link);
 }
 
 /* A jump lands below the sticky task header, not under it. */

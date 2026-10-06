@@ -1,6 +1,9 @@
 import { For } from "solid-js";
 
+import { MENTION } from "@topic-overview/core/page";
+
 import { type Inline, parseText } from "../inline.ts";
+import { useRelate } from "../relate.ts";
 
 // A block's text with its inline markdown and fenced code blocks rendered.
 export function Text(props: { text: string }) {
@@ -45,6 +48,40 @@ function InlinePiece(props: { inline: Inline }) {
         </a>
       );
     default:
-      return <>{inline.text}</>;
+      return <Mentions text={inline.text} />;
   }
+}
+
+// Plain text, with a mention of a label on the page made a link to the
+// block that carries it.
+function Mentions(props: { text: string }) {
+  const relate = useRelate();
+  const pieces = () => {
+    const out: { text: string; target?: string }[] = [];
+    let last = 0;
+    for (const match of props.text.matchAll(MENTION)) {
+      const target = relate.labels().get(match[1]);
+      // A block's own label, as R2 in "R2: …", names it rather than relates.
+      const ownLabel = match.index === 0 && props.text[match[0].length] === ":";
+      if (!target || ownLabel) continue;
+      if (match.index > last) out.push({ text: props.text.slice(last, match.index) });
+      out.push({ text: match[1], target });
+      last = match.index + match[0].length;
+    }
+    if (last < props.text.length) out.push({ text: props.text.slice(last) });
+    return out;
+  };
+  return (
+    <For each={pieces()}>
+      {(piece) =>
+        piece.target ? (
+          <a class="mention" href={`#${piece.target}`}>
+            {piece.text}
+          </a>
+        ) : (
+          <>{piece.text}</>
+        )
+      }
+    </For>
+  );
 }

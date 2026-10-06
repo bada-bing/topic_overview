@@ -2,6 +2,7 @@ import { Show } from "solid-js";
 
 import type { Block } from "@topic-overview/core";
 
+import { blockId } from "../column.ts";
 import { splitMarker } from "../inline.ts";
 import { Text } from "./Text.tsx";
 
@@ -9,7 +10,7 @@ import { Text } from "./Text.tsx";
 export function Paragraph(props: { block: Block }) {
   const parts = () => splitMarker(props.block.text);
   return (
-    <div id={props.block.id} class={["paragraph", { [`state-${parts().marker?.toLowerCase()}`]: !!parts().marker }]}>
+    <div id={blockId(props.block.id)} data-block={props.block.id} class={["paragraph", { [`state-${parts().marker?.toLowerCase()}`]: !!parts().marker }]}>
       <Show when={parts().marker}>{(marker) => <span class="marker">{marker()}</span>}</Show>
       <Text text={parts().text} />
     </div>

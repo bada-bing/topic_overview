@@ -2,7 +2,9 @@ import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createMemo, createSignal, flush, onSettled } from "solid-js";
 
 import type { DiscussionView } from "@topic-overview/core";
+import { walk } from "@topic-overview/core/page";
 
+import { Beside } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
@@ -22,8 +24,15 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   const view = createMemo(() => fetchDiscussion(props.source, props.startedAt));
   const entries = createMemo(() => outline(view().page.blocks));
   const owners = createMemo(() => sectionOf(view().page.blocks));
+  const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
   // Every section starts closed, and at most one is open.
   const [open, setOpen] = createSignal<string | undefined>(undefined);
+  // The section or subsection shown in the column beside, if any.
+  const [beside, setBeside] = createSignal<string | undefined>(undefined);
+  const besideBlock = () => {
+    const id = beside();
+    return id ? blocks().get(id) : undefined;
+  };
 
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
@@ -50,9 +59,9 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   return (
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
-        <div class="layout">
+        <div class={["layout", { "with-beside": !!besideBlock() }]}>
           <aside class="sidebar">
-            <Outline entries={entries()} open={open()} />
+            <Outline entries={entries()} open={open()} beside={beside()} onBeside={(id) => setBeside(id)} />
           </aside>
           <div class="content">
             <header class="discussion-header">
@@ -73,6 +82,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
               </For>
             </main>
           </div>
+          <Show when={besideBlock()}>{(block) => <Beside block={block()} onClose={() => setBeside(undefined)} />}</Show>
         </div>
       </Loading>
     </Errored>

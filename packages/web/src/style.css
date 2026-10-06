@@ -162,6 +162,69 @@ body {
   font-size: 1.2em;
 }
 
+.task-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background);
+  border-bottom: 1px solid var(--rule);
+  padding: 8px 0;
+  margin-bottom: 16px;
+}
+
+.task-meta {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 0.85em;
+}
+
+.task-key {
+  font-weight: 600;
+}
+
+.task-phase {
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+.task-phase.status-todo { background: var(--code-background); }
+.task-phase.status-pending { background: var(--now-tint); color: var(--now); }
+.task-phase.status-done { color: var(--done); }
+.task-phase.status-closed { color: var(--muted); }
+
+.task-discussion {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.task-title {
+  font-size: 1.3em;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-now {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 0.9em;
+  margin-top: 4px;
+}
+
+.task-now-item {
+  text-decoration: none;
+}
+
+.task-now-item::before {
+  content: "NOW ";
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8em;
+  color: var(--now);
+}
+
 @media (max-width: 800px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
@@ -287,4 +350,9 @@ a {
 .state-later .marker {
   border: 1px solid var(--rule);
   color: var(--muted);
+}
+
+/* A jump lands below the sticky task header, not under it. */
+main [id] {
+  scroll-margin-top: 120px;
 }

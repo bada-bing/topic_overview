@@ -1,5 +1,5 @@
 import { render } from "@solidjs/web";
-import { Errored, For, Loading, Show, createMemo, createSignal, flush, onSettled } from "solid-js";
+import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
 
 import type { DiscussionView } from "@topic-overview/core";
 import { walk } from "@topic-overview/core/page";
@@ -8,7 +8,9 @@ import { Beside } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
+import { TaskHeader } from "./components/TaskHeader.tsx";
 import { isSection, outline, sectionOf } from "./outline.ts";
+import { taskHeader } from "./task.ts";
 import "./style.css";
 
 const ROUTE = /^\/d\/([^/]+)\/([^/]+)\/?$/;
@@ -24,6 +26,9 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   const view = createMemo(() => fetchDiscussion(props.source, props.startedAt));
   const entries = createMemo(() => outline(view().page.blocks));
   const owners = createMemo(() => sectionOf(view().page.blocks));
+  const task = createMemo(() => taskHeader(view().page));
+  const discussionLine = () =>
+    `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
   const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
   // Every section starts closed, and at most one is open.
   const [open, setOpen] = createSignal<string | undefined>(undefined);
@@ -36,8 +41,8 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
 
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
-  const jump = (id: string) => {
-    setOpen(owners().get(id));
+  const jump = (id: string, sections: Map<string, string> = owners()) => {
+    setOpen(sections.get(id));
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
@@ -52,9 +57,18 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
       jump(id);
     };
     document.addEventListener("click", onClick);
-    if (location.hash) jump(decodeURIComponent(location.hash.slice(1)));
     return () => document.removeEventListener("click", onClick);
   });
+
+  // A block named in the URL is jumped to once the discussion has loaded;
+  // the compute waits for it, the apply runs once it is there.
+  createEffect(
+    () => owners(),
+    (sections) => {
+      // An effect's own flush is still running, so the jump waits for it.
+      if (location.hash) queueMicrotask(() => jump(decodeURIComponent(location.hash.slice(1)), sections));
+    },
+  );
 
   return (
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
@@ -64,10 +78,16 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
             <Outline entries={entries()} open={open()} beside={beside()} onBeside={(id) => setBeside(id)} />
           </aside>
           <div class="content">
-            <header class="discussion-header">
-              {view().ref.source} · version {view().discussion.version}
-              {view().discussion.closed ? " · closed" : ""}
-            </header>
+            <Show
+              when={task()}
+              fallback={
+                <header class="discussion-header">
+                  {view().ref.source} · {discussionLine()}
+                </header>
+              }
+            >
+              {(header) => <TaskHeader task={header()} discussion={discussionLine()} />}
+            </Show>
             <main>
               <For each={view().page.blocks}>
                 {(block) => (

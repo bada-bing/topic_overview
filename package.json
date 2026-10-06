@@ -12,7 +12,7 @@
     "build": "pnpm --filter @topic-overview/web build",
     "test": "pnpm --recursive test",
     "typecheck": "tsc -p packages/core && tsc -p packages/server && tsc -p packages/cli && tsc -p packages/web",
-    "topic": "node packages/cli/src/main.ts"
+    "topic": "node --env-file-if-exists=.env packages/cli/src/main.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

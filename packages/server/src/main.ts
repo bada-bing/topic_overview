@@ -6,7 +6,7 @@ import { Store, StoreError } from "@topic-overview/core";
 const HOST = "127.0.0.1";
 const PORT = 4310;
 
-const store = new Store(process.env.TOPIC_OVERVIEW_DISCUSSIONS);
+const store = new Store();
 
 const DISCUSSION = /^\/api\/discussions\/([^/]+)\/([^/]+)$/;
 

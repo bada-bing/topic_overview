@@ -10,7 +10,7 @@ export interface Context {
 // pnpm runs the command from the repository, and keeps the directory it was
 // called from in INIT_CWD; the session's transcript lives under that one.
 export function context(sessionId: string | undefined): Context {
-  const store = new Store(process.env.TOPIC_OVERVIEW_DISCUSSIONS);
+  const store = new Store();
   const session = sessionId ? claudeSession(sessionId, process.env.INIT_CWD ?? process.cwd()) : undefined;
   return { store, session };
 }

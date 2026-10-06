@@ -15,7 +15,13 @@ import { parsePage, validatePage } from "./page.ts";
 
 const run = promisify(execFile);
 
-export const DEFAULT_ROOT = join(homedir(), ".local/share/topic-overview/discussions");
+// Where discussions live: TOPIC_OVERVIEW_DISCUSSIONS, set in .env, or a
+// neutral default. A leading ~ stands for the home directory.
+export function discussionsRoot(): string {
+  const configured = process.env.TOPIC_OVERVIEW_DISCUSSIONS;
+  if (!configured) return join(homedir(), ".local/share/topic-overview/discussions");
+  return configured.startsWith("~/") ? join(homedir(), configured.slice(2)) : configured;
+}
 const NAME = /^[A-Za-z0-9][\w.-]*$/;
 
 export class StoreError extends Error {}
@@ -33,7 +39,7 @@ export interface SessionInfo {
 export class Store {
   readonly root: string;
 
-  constructor(root: string = DEFAULT_ROOT) {
+  constructor(root: string = discussionsRoot()) {
     this.root = root;
   }
 

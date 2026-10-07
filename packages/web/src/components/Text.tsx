@@ -1,8 +1,9 @@
-import { For } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 
 import { MENTION } from "@topic-overview/core/page";
 
 import { type Inline, parseText } from "../inline.ts";
+import { type PagePreview, loadPreview } from "../previews.ts";
 import { useRelate } from "../relate.ts";
 
 // A block's text with its inline markdown and fenced code blocks rendered.
@@ -40,13 +41,9 @@ function InlinePiece(props: { inline: Inline }) {
         </a>
       );
     case "page":
-      return <span class="page-link">{inline.name}</span>;
+      return <PageLink name={inline.name} />;
     case "reference":
-      return (
-        <a class="reference" href={`#${inline.id}`}>
-          {inline.id}
-        </a>
-      );
+      return <BlockLink target={inline.id} label={inline.id} kind="reference" />;
     default:
       return <Mentions text={inline.text} />;
   }
@@ -75,13 +72,61 @@ function Mentions(props: { text: string }) {
     <For each={pieces()}>
       {(piece) =>
         piece.target ? (
-          <a class="mention" href={`#${piece.target}`}>
-            {piece.text}
-          </a>
+          <BlockLink target={piece.target} label={piece.text} kind="mention" />
         ) : (
           <>{piece.text}</>
         )
       }
     </For>
+  );
+}
+
+const PREVIEW_LENGTH = 240;
+
+// A link to a block on the page. Hovering it shows the block's text, which
+// is already in the browser.
+function BlockLink(props: { target: string; label: string; kind: "reference" | "mention" }) {
+  const relate = useRelate();
+  const text = () => {
+    const full = relate.blockText(props.target) ?? "";
+    return full.length > PREVIEW_LENGTH ? `${full.slice(0, PREVIEW_LENGTH)}…` : full;
+  };
+  return (
+    <a class={[props.kind, "has-preview"]} href={`#${props.target}`}>
+      {props.label}
+      <Show when={text()}>
+        <span class="preview">{text()}</span>
+      </Show>
+    </a>
+  );
+}
+
+// A link to another page in the knowledge base. Hovering it fetches a short
+// preview, once.
+function PageLink(props: { name: string }) {
+  const [preview, setPreview] = createSignal<PagePreview | undefined>(undefined);
+  const [missing, setMissing] = createSignal(false);
+  const load = () => {
+    if (preview() || missing()) return;
+    loadPreview(props.name).then(setPreview, () => setMissing(true));
+  };
+  return (
+    <span class={["page-link", "has-preview", { missing: missing() }]} onPointerEnter={load}>
+      {props.name}
+      <Show when={preview()}>
+        {(shown) => (
+          <span class="preview">
+            <For each={Object.entries(shown().properties)}>
+              {([key, value]) => (
+                <span class="preview-property">
+                  {key}: {value}
+                </span>
+              )}
+            </For>
+            <For each={shown().lines}>{(line) => <span class="preview-line">{line}</span>}</For>
+          </span>
+        )}
+      </Show>
+    </span>
   );
 }

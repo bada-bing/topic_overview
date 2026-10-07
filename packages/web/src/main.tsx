@@ -51,6 +51,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
     const id = beside();
     return id ? blocks().get(id) : undefined;
   };
+  const blockText = (id: string) => blocks().get(id)?.text;
 
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
@@ -86,7 +87,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   return (
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
-        <RelateContext value={{ pointed, tinted, labels: labelled }}>
+        <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <div
           class={["layout", { "with-beside": !!besideBlock() }]}
           onPointerOver={onPointer}

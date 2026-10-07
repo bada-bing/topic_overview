@@ -303,6 +303,55 @@ a {
   color: var(--link);
 }
 
+.page-link.missing {
+  color: var(--muted);
+  cursor: default;
+}
+
+.has-preview {
+  position: relative;
+}
+
+.preview {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  width: 360px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--background);
+  color: var(--text);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: normal;
+  white-space: normal;
+  text-decoration: none;
+}
+
+.has-preview:hover > .preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preview-property {
+  color: var(--muted);
+}
+
+.preview-line {
+  margin-top: 2px;
+}
+
+.page-link > .preview::before,
+.page-link > .preview::after {
+  content: none;
+}
+
 .page-link::before {
   content: "[[";
   color: var(--muted);

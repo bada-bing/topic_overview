@@ -7,12 +7,14 @@ export interface Relate {
   pointed: () => string | undefined;
   tinted: () => Set<string>;
   labels: () => Map<string, string>;
+  blockText: (id: string) => string | undefined;
 }
 
 export const RelateContext = createContext<Relate>({
   pointed: () => undefined,
   tinted: () => new Set(),
   labels: () => new Map(),
+  blockText: () => undefined,
 });
 
 export function useRelate(): Relate {

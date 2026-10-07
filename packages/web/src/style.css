@@ -301,6 +301,7 @@ a {
 
 .page-link {
   color: var(--link);
+  cursor: pointer;
 }
 
 .page-link.missing {

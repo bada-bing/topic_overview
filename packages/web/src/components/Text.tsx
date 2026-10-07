@@ -1,7 +1,8 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createSignal, useContext } from "solid-js";
 
 import { MENTION } from "@topic-overview/core/page";
 
+import { OpenPageContext } from "../column.ts";
 import { type Inline, parseText } from "../inline.ts";
 import { type PagePreview, loadPreview } from "../previews.ts";
 import { useRelate } from "../relate.ts";
@@ -102,8 +103,9 @@ function BlockLink(props: { target: string; label: string; kind: "reference" | "
 }
 
 // A link to another page in the knowledge base. Hovering it fetches a short
-// preview, once.
+// preview, once; clicking it opens the page in the column beside.
 function PageLink(props: { name: string }) {
+  const openPage = useContext(OpenPageContext);
   const [preview, setPreview] = createSignal<PagePreview | undefined>(undefined);
   const [missing, setMissing] = createSignal(false);
   const load = () => {
@@ -111,7 +113,13 @@ function PageLink(props: { name: string }) {
     loadPreview(props.name).then(setPreview, () => setMissing(true));
   };
   return (
-    <span class={["page-link", "has-preview", { missing: missing() }]} onPointerEnter={load}>
+    <span
+      class={["page-link", "has-preview", { missing: missing() }]}
+      role="link"
+      tabindex="0"
+      onPointerEnter={load}
+      onClick={() => openPage(props.name)}
+    >
       {props.name}
       <Show when={preview()}>
         {(shown) => (

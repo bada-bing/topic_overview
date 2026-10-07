@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { parsePage } from "@topic-overview/core";
 import { Store, StoreError } from "@topic-overview/core";
 
-import { KbError, previewKbPage } from "./kb.ts";
+import { KbError, previewKbPage, readKbPage } from "./kb.ts";
 
 const HOST = "127.0.0.1";
 const PORT = 4310;
@@ -12,6 +12,7 @@ const store = new Store();
 
 const DISCUSSION = /^\/api\/discussions\/([^/]+)\/([^/]+)$/;
 const PREVIEW = /^\/api\/preview\/(.+)$/;
+const SOURCE = /^\/api\/source\/(.+)$/;
 
 async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${HOST}`);
@@ -23,6 +24,8 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
   const preview = PREVIEW.exec(url.pathname);
   if (request.method === "GET" && preview) return send(response, 200, await previewKbPage(decodeURIComponent(preview[1])));
+  const source = SOURCE.exec(url.pathname);
+  if (request.method === "GET" && source) return send(response, 200, await readKbPage(decodeURIComponent(source[1])));
   send(response, 404, { error: "not found" });
 }
 

@@ -4,12 +4,13 @@ import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, fl
 import type { DiscussionView } from "@topic-overview/core";
 import { labels, relations, walk } from "@topic-overview/core/page";
 
-import { Beside } from "./components/Beside.tsx";
+import { BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { isSection, outline, sectionOf } from "./outline.ts";
+import { OpenPageContext } from "./column.ts";
 import { RelateContext, relatedTo } from "./relate.ts";
 import { taskHeader } from "./task.ts";
 import "./style.css";
@@ -45,11 +46,17 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
   // Every section starts closed, and at most one is open.
   const [open, setOpen] = createSignal<string | undefined>(undefined);
-  // The section or subsection shown in the column beside, if any.
-  const [beside, setBeside] = createSignal<string | undefined>(undefined);
-  const besideBlock = () => {
-    const id = beside();
-    return id ? blocks().get(id) : undefined;
+  // What the column beside shows, if anything: a section or subsection of
+  // this page, or another page of the knowledge base.
+  type Beside = { section: string } | { page: string };
+  const [beside, setBeside] = createSignal<Beside | undefined>(undefined);
+  const besideSection = () => {
+    const shown = beside();
+    return shown && "section" in shown ? blocks().get(shown.section) : undefined;
+  };
+  const besidePage = () => {
+    const shown = beside();
+    return shown && "page" in shown ? shown.page : undefined;
   };
   const blockText = (id: string) => blocks().get(id)?.text;
 
@@ -88,13 +95,19 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
+        <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <div
-          class={["layout", { "with-beside": !!besideBlock() }]}
+          class={["layout", { "with-beside": !!beside() }]}
           onPointerOver={onPointer}
           onPointerLeave={() => setPointed(undefined)}
         >
           <aside class="sidebar">
-            <Outline entries={entries()} open={open()} beside={beside()} onBeside={(id) => setBeside(id)} />
+            <Outline
+              entries={entries()}
+              open={open()}
+              beside={besideSection()?.id}
+              onBeside={(id) => setBeside({ section: id })}
+            />
           </aside>
           <div class="content">
             <Show
@@ -121,8 +134,14 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
               </For>
             </main>
           </div>
-          <Show when={besideBlock()}>{(block) => <Beside block={block()} onClose={() => setBeside(undefined)} />}</Show>
+          <Show when={besideSection()}>
+            {(block) => <BesideSection block={block()} onClose={() => setBeside(undefined)} />}
+          </Show>
+          <Show when={besidePage()} keyed>
+            {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
+          </Show>
         </div>
+        </OpenPageContext>
         </RelateContext>
       </Loading>
     </Errored>

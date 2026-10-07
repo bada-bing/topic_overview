@@ -596,3 +596,20 @@ main [id] {
 .comment-list-body {
   color: var(--text);
 }
+
+.diagram {
+  margin: 6px 0;
+  overflow-x: auto;
+}
+
+.diagram-bpmn {
+  height: 360px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.diagram-error .error {
+  font-size: 0.9em;
+  margin: 4px 0;
+}

@@ -10,6 +10,8 @@
   "dependencies": {
     "@solidjs/web": "2.0.0-rc.14",
     "@topic-overview/core": "workspace:*",
+    "bpmn-js": "18.31.0",
+    "mermaid": "12.1.0",
     "solid-js": "2.0.0-rc.14"
   },
   "devDependencies": {

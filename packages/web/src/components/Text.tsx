@@ -3,6 +3,7 @@ import { For, Show, createSignal, useContext } from "solid-js";
 import { MENTION } from "@topic-overview/core/page";
 
 import { OpenPageContext } from "../column.ts";
+import { DIAGRAM_LANGUAGES, Diagram } from "./Diagram.tsx";
 import { type Inline, parseText } from "../inline.ts";
 import { type PagePreview, loadPreview } from "../previews.ts";
 import { useRelate } from "../relate.ts";
@@ -13,9 +14,13 @@ export function Text(props: { text: string }) {
     <For each={parseText(props.text)}>
       {(part) =>
         part.kind === "codeblock" ? (
-          <pre class="codeblock">
-            <code>{part.code}</code>
-          </pre>
+          DIAGRAM_LANGUAGES.has(part.language) ? (
+            <Diagram language={part.language} source={part.code} />
+          ) : (
+            <pre class="codeblock">
+              <code>{part.code}</code>
+            </pre>
+          )
         ) : (
           <span class="inline-text">
             <For each={part.inlines}>{(inline) => <InlinePiece inline={inline} />}</For>

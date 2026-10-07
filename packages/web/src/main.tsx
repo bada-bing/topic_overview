@@ -11,6 +11,8 @@ import { Section } from "./components/Section.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { isSection, outline, sectionOf } from "./outline.ts";
 import { OpenPageContext } from "./column.ts";
+import { CommentsContext, changeComments } from "./comments.ts";
+import { CommentList } from "./components/CommentList.tsx";
 import { RelateContext, relatedTo } from "./relate.ts";
 import { taskHeader } from "./task.ts";
 import "./style.css";
@@ -60,6 +62,22 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   };
   const blockText = (id: string) => blocks().get(id)?.text;
 
+  // The comments, as the server last answered with them. Every change goes
+  // to the server, which answers with the comments as they now are.
+  const [annotations, setAnnotations] = createSignal(() => view().discussion.annotations);
+  const base = `/api/discussions/${props.source}/${props.startedAt}`;
+  const change = (method: "POST" | "PATCH" | "DELETE", id: string | undefined, body?: unknown) =>
+    changeComments(base, method, id, body).then((next) => {
+      setAnnotations(next);
+    });
+  const comments = {
+    readOnly: () => view().discussion.closed !== null,
+    of: (block: string) => annotations().filter((annotation) => annotation.target === block),
+    add: (block: string, body: string) => change("POST", undefined, { target: block, body }),
+    edit: (id: string, body: string) => change("PATCH", id, { body }),
+    remove: (id: string) => change("DELETE", id),
+  };
+
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
   const jump = (id: string, sections: Map<string, string> = owners()) => {
@@ -96,6 +114,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
       <Loading fallback={<p>Loading…</p>}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
+        <CommentsContext value={comments}>
         <div
           class={["layout", { "with-beside": !!beside() }]}
           onPointerOver={onPointer}
@@ -108,6 +127,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
               beside={besideSection()?.id}
               onBeside={(id) => setBeside({ section: id })}
             />
+            <CommentList annotations={annotations()} blockText={blockText} />
           </aside>
           <div class="content">
             <Show
@@ -141,6 +161,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
           </Show>
         </div>
+        </CommentsContext>
         </OpenPageContext>
         </RelateContext>
       </Loading>

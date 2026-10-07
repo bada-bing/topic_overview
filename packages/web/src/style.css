@@ -428,3 +428,171 @@ a {
 main [id] {
   scroll-margin-top: 120px;
 }
+
+/* A block's frame: the gutter to its left, its content, its comments. */
+.content main,
+.beside {
+  --gutter: 64px;
+}
+
+.content main {
+  padding-left: var(--gutter);
+}
+
+.block-frame {
+  position: relative;
+}
+
+.gutter {
+  position: absolute;
+  left: calc(-1 * var(--gutter));
+  top: 2px;
+  width: calc(var(--gutter) - 8px);
+  display: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* The gutter of nested blocks would land on their parents' text, so it is
+   shown only for the block the pointer is on. */
+.block-frame:hover > .gutter {
+  display: flex;
+}
+
+.gutter-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.gutter-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.gutter-buttons button {
+  all: unset;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 4px;
+}
+
+.gutter-buttons button:hover {
+  background: var(--code-background);
+}
+
+.comment-badge {
+  position: relative;
+  display: inline-block;
+  margin: 0 0 4px;
+}
+
+.badge {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--now);
+  border: 1px solid var(--now);
+  border-radius: 10px;
+  padding: 0 8px;
+}
+
+.comment-popover {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 6;
+  width: 380px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+  font-size: 0.9rem;
+}
+
+.comment-badge:hover .comment-popover,
+.comment-badge.pinned .comment-popover {
+  display: block;
+}
+
+.comment + .comment {
+  border-top: 1px solid var(--rule);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.comment-body {
+  white-space: pre-wrap;
+}
+
+.comment-actions,
+.comment-field-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  align-items: baseline;
+}
+
+.comment-actions button,
+.comment-field-actions button {
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: var(--code-background);
+  color: var(--text);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1px 8px;
+}
+
+.comment-field {
+  margin: 4px 0 8px;
+}
+
+.comment-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: var(--text);
+  background: var(--code-background);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.comment-list {
+  margin-top: 24px;
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+  font-size: 0.85em;
+}
+
+.comment-list h3 {
+  font-size: 1em;
+  margin: 0 0 6px;
+}
+
+.comment-list-entry {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.comment-list-entry:hover {
+  background: var(--code-background);
+}
+
+.comment-list-block {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.comment-list-body {
+  color: var(--text);
+}

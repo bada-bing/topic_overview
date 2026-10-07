@@ -100,8 +100,7 @@ test("every comment is a commit, and a comment on a missing block is refused", a
 test("a new version starts with no annotations and is tagged", async () => {
   const ref = await store.open("garden", "/notes/garden.md", PAGE);
   await store.addComment(ref, "b2", "shorter");
-  await store.beginRound(ref, SESSION);
-  const version = await store.saveVersion(ref, PAGE.replace("need more sun", "need less shade"), SESSION);
+  const version = await store.saveVersion(ref, PAGE.replace("need more sun", "need less shade"), 1, SESSION);
   assert.equal(version, 2);
   const { discussion, pageMd } = await store.read(ref);
   assert.deepEqual(discussion.annotations, []);
@@ -109,11 +108,10 @@ test("a new version starts with no annotations and is tagged", async () => {
   assert.deepEqual(tags(store.directory(ref)).sort(), ["round-1", "round-2"]);
 });
 
-test("a version is refused while another session carries out a round", async () => {
+test("a copy made from an outdated version is refused", async () => {
   const ref = await store.open("garden", "/notes/garden.md", PAGE);
-  await store.beginRound(ref, SESSION);
-  await assert.rejects(store.saveVersion(ref, PAGE, OTHER), /session-a/);
-  await assert.rejects(store.beginRound(ref, OTHER), /session-a/);
+  await store.saveVersion(ref, PAGE, 1, SESSION);
+  await assert.rejects(store.saveVersion(ref, PAGE, 1, OTHER), /made from version 1, but the discussion is at version 2/);
 });
 
 test("opening again closes the open discussion, which becomes read-only", async () => {

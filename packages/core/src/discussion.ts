@@ -15,23 +15,17 @@ export interface Annotation {
   body: string;
 }
 
-export interface Round {
-  session: string;
-  started: string;
-}
-
 export interface Discussion {
   source: string; // where the copy came from, such as a Logseq page's path
   opened: string;
   closed: string | null;
   version: number;
-  round: Round | null; // set while the agent carries out a round
   sessions: Session[];
   annotations: Annotation[];
 }
 
 export function newDiscussion(source: string, opened: string): Discussion {
-  return { source, opened, closed: null, version: 1, round: null, sessions: [], annotations: [] };
+  return { source, opened, closed: null, version: 1, sessions: [], annotations: [] };
 }
 
 export function serializeDiscussion(discussion: Discussion): string {

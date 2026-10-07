@@ -111,29 +111,20 @@ export class Store {
     await commit(this.directory(ref), `Delete the comment on ${annotation.target}`);
   }
 
-  // The agent takes the round before it changes the copy, so that a second
-  // session cannot write a version over it.
-  async beginRound(ref: DiscussionRef, session: SessionInfo, now = new Date()): Promise<void> {
+  // Saves the changed copy as a new version, which starts with no
+  // annotations. The copy names the version it was made from, and a copy made
+  // from an outdated version is refused, so no version is written over
+  // another session's.
+  async saveVersion(ref: DiscussionRef, pageMd: string, fromVersion: number, session: SessionInfo): Promise<number> {
     const { discussion } = await this.readOpen(ref);
-    if (discussion.round && discussion.round.session !== session.id) {
-      throw new StoreError(`a round is being carried out by session ${discussion.round.session}`);
-    }
-    discussion.round = { session: session.id, started: now.toISOString() };
-    addSession(discussion, session);
-    await this.write(ref, discussion);
-    await commit(this.directory(ref), "Begin a round", session);
-  }
-
-  // Saves the changed copy as a new version, which starts with no annotations.
-  async saveVersion(ref: DiscussionRef, pageMd: string, session: SessionInfo): Promise<number> {
-    const { discussion } = await this.readOpen(ref);
-    if (discussion.round && discussion.round.session !== session.id) {
-      throw new StoreError(`a round is being carried out by session ${discussion.round.session}`);
+    if (discussion.version !== fromVersion) {
+      throw new StoreError(
+        `the copy was made from version ${fromVersion}, but the discussion is at version ${discussion.version}`,
+      );
     }
     refuseInvalid(pageMd);
     const dir = this.directory(ref);
     discussion.version += 1;
-    discussion.round = null;
     discussion.annotations = [];
     addSession(discussion, session);
     await writeFile(join(dir, "page.md"), pageMd);
@@ -146,7 +137,6 @@ export class Store {
   async close(ref: DiscussionRef, session?: SessionInfo, now = new Date()): Promise<void> {
     const { discussion } = await this.readOpen(ref);
     discussion.closed = now.toISOString();
-    discussion.round = null;
     if (session) addSession(discussion, session);
     await this.write(ref, discussion);
     await commit(this.directory(ref), "Close the discussion", session);

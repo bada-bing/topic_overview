@@ -4,7 +4,8 @@ import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, fl
 import type { DiscussionView } from "@topic-overview/core";
 import { labels, relations, walk } from "@topic-overview/core/page";
 
-import { BesidePage, BesideSection } from "./components/Beside.tsx";
+import { AttachmentList } from "./components/AttachmentList.tsx";
+import { BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
@@ -31,7 +32,13 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   const entries = createMemo(() => outline(view().page.blocks));
   const owners = createMemo(() => sectionOf(view().page.blocks));
   const task = createMemo(() => taskHeader(view().page));
-  const forward = createMemo(() => relations(view().page));
+  // An attachment relates to the blocks it is about, so pointing at it
+  // highlights them.
+  const forward = createMemo(() => {
+    const related = relations(view().page);
+    for (const attachment of view().attachments) related.set(`attachment:${attachment.id}`, new Set(attachment.blocks));
+    return related;
+  });
   const labelled = createMemo(() => labels(view().page));
   // The block the pointer is on, and the blocks tinted because they relate to it.
   const [pointed, setPointed] = createSignal<string | undefined>(undefined);
@@ -50,7 +57,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   const [open, setOpen] = createSignal<string | undefined>(undefined);
   // What the column beside shows, if anything: a section or subsection of
   // this page, or another page of the knowledge base.
-  type Beside = { section: string } | { page: string };
+  type Beside = { section: string } | { page: string } | { attachment: string };
   const [beside, setBeside] = createSignal<Beside | undefined>(undefined);
   const besideSection = () => {
     const shown = beside();
@@ -61,6 +68,10 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
     return shown && "page" in shown ? shown.page : undefined;
   };
   const blockText = (id: string) => blocks().get(id)?.text;
+  const besideAttachment = () => {
+    const shown = beside();
+    return shown && "attachment" in shown ? view().attachments.find((attachment) => attachment.id === shown.attachment) : undefined;
+  };
 
   // The comments, as the server last answered with them. Every change goes
   // to the server, which answers with the comments as they now are.
@@ -127,6 +138,11 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
               beside={besideSection()?.id}
               onBeside={(id) => setBeside({ section: id })}
             />
+            <AttachmentList
+              attachments={view().attachments}
+              open={besideAttachment()?.id}
+              onOpen={(id) => setBeside({ attachment: id })}
+            />
             <CommentList annotations={annotations()} blockText={blockText} />
           </aside>
           <div class="content">
@@ -156,6 +172,9 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
           </div>
           <Show when={besideSection()}>
             {(block) => <BesideSection block={block()} onClose={() => setBeside(undefined)} />}
+          </Show>
+          <Show when={besideAttachment()} keyed>
+            {(attachment) => <BesideAttachment attachment={attachment} base={base} onClose={() => setBeside(undefined)} />}
           </Show>
           <Show when={besidePage()} keyed>
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}

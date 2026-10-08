@@ -613,3 +613,65 @@ main [id] {
   font-size: 0.9em;
   margin: 4px 0;
 }
+
+.attachment-list {
+  margin-top: 24px;
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+  font-size: 0.85em;
+}
+
+.attachment-list h3 {
+  font-size: 1em;
+  margin: 0 0 6px;
+}
+
+.attachment-list-entry {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.attachment-list-entry:hover,
+.attachment-list-entry.current {
+  background: var(--code-background);
+}
+
+.attachment-kind {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8em;
+  color: var(--muted);
+  min-width: 56px;
+}
+
+.attachment-origin {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+
+.attachment-image {
+  max-width: 100%;
+}
+
+.attachment-table {
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.attachment-table th,
+.attachment-table td {
+  border: 1px solid var(--rule);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.attachment-table th {
+  background: var(--code-background);
+}

@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { extname } from "node:path";
 
 import { parsePage } from "@topic-overview/core";
 import { Store, StoreError } from "@topic-overview/core";
@@ -10,7 +12,18 @@ const PORT = Number(process.env.TOPIC_OVERVIEW_PORT ?? 4310);
 
 const store = new Store();
 
+// An attachment's file is served as its kind; diagrams and tables are text.
+const CONTENT_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
+
 const DISCUSSION = /^\/api\/discussions\/([^/]+)\/([^/]+)$/;
+const ATTACHMENT = /^\/api\/discussions\/([^/]+)\/([^/]+)\/attachments\/([^/]+)$/;
 const COMMENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/comments(?:\/([^/]+))?$/;
 const PREVIEW = /^\/api\/preview\/(.+)$/;
 const SOURCE = /^\/api\/source\/(.+)$/;
@@ -21,7 +34,20 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   if (request.method === "GET" && discussion) {
     const ref = { source: decodeURIComponent(discussion[1]), startedAt: decodeURIComponent(discussion[2]) };
     const contents = await store.read(ref);
-    return send(response, 200, { ref, discussion: contents.discussion, page: parsePage(contents.pageMd) });
+    return send(response, 200, {
+      ref,
+      discussion: contents.discussion,
+      page: parsePage(contents.pageMd),
+      attachments: contents.attachments,
+    });
+  }
+  const attachment = ATTACHMENT.exec(url.pathname);
+  if (request.method === "GET" && attachment) {
+    const ref = { source: decodeURIComponent(attachment[1]), startedAt: decodeURIComponent(attachment[2]) };
+    const path = await store.attachmentFile(ref, decodeURIComponent(attachment[3]));
+    response.writeHead(200, { "content-type": CONTENT_TYPES[extname(path).toLowerCase()] ?? "text/plain; charset=utf-8" });
+    response.end(await readFile(path));
+    return;
   }
   const comments = COMMENTS.exec(url.pathname);
   if (comments) return handleComments(request, response, comments);

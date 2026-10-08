@@ -1,3 +1,4 @@
+export * from "./attachments.ts";
 export * from "./discussion.ts";
 export * from "./logseq.ts";
 export * from "./page.ts";

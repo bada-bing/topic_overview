@@ -4,12 +4,13 @@
 // version is a commit tagged `round-<n>`.
 
 import { execFile } from "node:child_process";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 
+import { type Attachment, readAttachments, validateAttachments } from "./attachments.ts";
 import { type Annotation, type Discussion, newDiscussion, parseDiscussion, serializeDiscussion } from "./discussion.ts";
 import { parsePage, validatePage } from "./page.ts";
 
@@ -72,13 +73,21 @@ export class Store {
     return ref;
   }
 
-  async read(ref: DiscussionRef): Promise<{ discussion: Discussion; pageMd: string }> {
+  async read(ref: DiscussionRef): Promise<{ discussion: Discussion; pageMd: string; attachments: Attachment[] }> {
     const dir = this.directory(ref);
-    const [json, pageMd] = await Promise.all([
+    const [json, pageMd, attachments] = await Promise.all([
       readFile(join(dir, "discussion.json"), "utf8"),
       readFile(join(dir, "page.md"), "utf8"),
+      readAttachments(join(dir, "attachments")),
     ]);
-    return { discussion: parseDiscussion(json), pageMd };
+    return { discussion: parseDiscussion(json), pageMd, attachments };
+  }
+
+  // The path of one attachment's file, refused unless the index names it.
+  async attachmentFile(ref: DiscussionRef, file: string): Promise<string> {
+    const { attachments } = await this.read(ref);
+    if (!attachments.some((attachment) => attachment.file === file)) throw new StoreError(`there is no attachment ${file}`);
+    return join(this.directory(ref), "attachments", file);
   }
 
   async addComment(ref: DiscussionRef, target: string, body: string, author = "me", now = new Date()): Promise<Annotation> {
@@ -114,8 +123,15 @@ export class Store {
   // Saves the changed copy as a new version, which starts with no
   // annotations. The copy names the version it was made from, and a copy made
   // from an outdated version is refused, so no version is written over
-  // another session's.
-  async saveVersion(ref: DiscussionRef, pageMd: string, fromVersion: number, session: SessionInfo): Promise<number> {
+  // another session's. A copy that brings attachments replaces the previous
+  // ones; one that brings none keeps them.
+  async saveVersion(
+    ref: DiscussionRef,
+    pageMd: string,
+    fromVersion: number,
+    session: SessionInfo,
+    attachmentsDir?: string,
+  ): Promise<number> {
     const { discussion } = await this.readOpen(ref);
     if (discussion.version !== fromVersion) {
       throw new StoreError(
@@ -123,11 +139,19 @@ export class Store {
       );
     }
     refuseInvalid(pageMd);
+    if (attachmentsDir) {
+      const problems = await validateAttachments(attachmentsDir, await readAttachments(attachmentsDir), new Set(blockIds(pageMd)));
+      if (problems.length > 0) throw new StoreError(`the attachments are not valid:\n- ${problems.join("\n- ")}`);
+    }
     const dir = this.directory(ref);
     discussion.version += 1;
     discussion.annotations = [];
     addSession(discussion, session);
     await writeFile(join(dir, "page.md"), pageMd);
+    if (attachmentsDir) {
+      await rm(join(dir, "attachments"), { recursive: true, force: true });
+      await cp(attachmentsDir, join(dir, "attachments"), { recursive: true });
+    }
     await this.write(ref, discussion);
     await commit(dir, `Save version ${discussion.version}`, session);
     await git(dir, "tag", `round-${discussion.version}`);

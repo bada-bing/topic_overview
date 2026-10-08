@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
+import { mkdir, writeFile } from "node:fs/promises";
 
 import { parsePage, validatePage } from "./page.ts";
 import { Store, StoreError } from "./store.ts";
@@ -130,4 +131,21 @@ test("resuming records the session once", async () => {
   const { discussion } = await store.read(ref);
   assert.deepEqual(discussion.sessions.map((session) => session.id), ["session-a", "session-b"]);
   await assert.rejects(store.resume("missing", OTHER), /no open discussion/);
+});
+
+test("a version brings its attachments, checked against its page", async () => {
+  const ref = await store.open("garden", "/notes/garden.md", PAGE);
+  const dir = join(root, "work-attachments");
+  await mkdir(dir);
+  await writeFile(join(dir, "a1-flow.mmd"), "flowchart LR\n  Sow --> Harvest\n");
+  const attachment = { id: "a1", file: "a1-flow.mmd", kind: "mermaid", title: "Flow", author: "agent", blocks: ["b4"], time: "2026-10-13T10:00:00Z" };
+  await writeFile(join(dir, "index.json"), JSON.stringify([attachment]));
+  await store.saveVersion(ref, PAGE, 1, SESSION, dir);
+  assert.deepEqual((await store.read(ref)).attachments, [attachment]);
+
+  await writeFile(join(dir, "index.json"), JSON.stringify([{ ...attachment, blocks: ["b99"], file: "missing.mmd" }]));
+  await assert.rejects(store.saveVersion(ref, PAGE, 2, SESSION, dir), /missing\.mmd[\s\S]*b99/);
+
+  await store.saveVersion(ref, PAGE, 2, SESSION);
+  assert.equal((await store.read(ref)).attachments.length, 1, "a copy without attachments keeps them");
 });

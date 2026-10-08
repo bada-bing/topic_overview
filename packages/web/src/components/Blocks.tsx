@@ -13,7 +13,7 @@ export function Blocks(props: { blocks: Block[] }) {
       <For each={props.blocks}>
         {(block) => (
           <li>
-            <BlockFrame id={block.id}>
+            <BlockFrame id={block.id} text={block.text}>
               <Show when={block.kind === "heading"} fallback={<Paragraph block={block} />}>
                 <Heading block={block} />
               </Show>

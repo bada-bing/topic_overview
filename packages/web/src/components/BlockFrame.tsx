@@ -2,14 +2,17 @@ import type { JSX } from "@solidjs/web";
 import { For, Show, createSignal, useContext } from "solid-js";
 
 import type { Annotation } from "@topic-overview/core";
+import { LABEL } from "@topic-overview/core/page";
 
 import { SourcePageContext } from "../column.ts";
 import { useComments } from "../comments.ts";
 
-// Everything around a block's content: the gutter with its id and the
+// Everything around a block's content: the gutter with its name and the
 // Comment and Copy buttons, which show when I point at the block and never
 // cover its text; the badge of its comments; and the field for a new one.
-export function BlockFrame(props: { id: string; children: JSX.Element }) {
+// A block is named by its label, such as R2, when it has one, and by its id
+// otherwise.
+export function BlockFrame(props: { id: string; text: string; children: JSX.Element }) {
   const comments = useComments();
   const linkedPage = useContext(SourcePageContext);
   const [writing, setWriting] = createSignal(false);
@@ -17,6 +20,7 @@ export function BlockFrame(props: { id: string; children: JSX.Element }) {
   let content: HTMLDivElement | undefined;
   const own = () => (linkedPage ? [] : comments.of(props.id));
   const canComment = () => !linkedPage && !comments.readOnly();
+  const name = () => LABEL.exec(props.text)?.[1] ?? props.id;
 
   return (
     <div class="block-frame">
@@ -31,7 +35,9 @@ export function BlockFrame(props: { id: string; children: JSX.Element }) {
             ⧉
           </button>
         </span>
-        <span class="gutter-id">{props.id}</span>
+        <span class="gutter-id" title={props.id}>
+          {name()}
+        </span>
       </div>
       <div class="block-body" ref={(element) => (content = element)}>
         {props.children}

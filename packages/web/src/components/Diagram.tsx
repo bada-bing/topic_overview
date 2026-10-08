@@ -1,4 +1,4 @@
-import { Show, createSignal, onSettled } from "solid-js";
+import { Show, createEffect, createSignal } from "solid-js";
 
 // The notations a diagram can be written in, each rendered by its own
 // library. Both are loaded only when a page shows a diagram of their kind.
@@ -36,14 +36,19 @@ export function Diagram(props: { language: string; source: string }) {
   const [error, setError] = createSignal<string | undefined>(undefined);
   let container: HTMLDivElement | undefined;
 
-  onSettled(() => {
-    const target = container;
-    if (!target) return;
-    const render = props.language === "bpmn" ? renderBpmn : renderMermaid;
-    render(target, props.source).catch((failure: unknown) => {
-      setError(failure instanceof Error ? failure.message : String(failure));
-    });
-  });
+  // The source may still be loading, as an attachment's is; the effect waits
+  // for it, then draws into the container.
+  createEffect(
+    () => ({ language: props.language, source: props.source }),
+    ({ language, source }) => {
+      const target = container;
+      if (!target) return;
+      const render = language === "bpmn" ? renderBpmn : renderMermaid;
+      render(target, source).catch((failure: unknown) => {
+        setError(failure instanceof Error ? failure.message : String(failure));
+      });
+    },
+  );
 
   return (
     <Show

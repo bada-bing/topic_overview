@@ -5,3 +5,5 @@ The page in `packages/web` is written against **Solid 2.0**, a release candidate
 For depth the cheatsheet does not give, read the migration guide and the design documents in Solid's repository, under `documentation/solid-2.0/`. They describe 2.0 as it is developed, which can be ahead of the pinned version.
 
 Every dependency is pinned to an exact version and upgraded on purpose, never through a range.
+
+The format of a discussion, the files, `page.md` and attachments, is described in `docs/page-format.md`. It is what an agent writes against, so a change to the format changes that file in the same commit.

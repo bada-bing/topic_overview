@@ -21,7 +21,6 @@ export function BlockFrame(props: { id: string; children: JSX.Element }) {
   return (
     <div class="block-frame">
       <div class="gutter">
-        <span class="gutter-id">{props.id}</span>
         <span class="gutter-buttons">
           <Show when={canComment()}>
             <button type="button" title="Comment on this block" onClick={() => setWriting(true)}>
@@ -32,6 +31,7 @@ export function BlockFrame(props: { id: string; children: JSX.Element }) {
             ⧉
           </button>
         </span>
+        <span class="gutter-id">{props.id}</span>
       </div>
       <div class="block-body" ref={(element) => (content = element)}>
         {props.children}

@@ -429,10 +429,13 @@ main [id] {
   scroll-margin-top: 120px;
 }
 
-/* A block's frame: the gutter to its left, its content, its comments. */
+/* A block's frame: the gutter to its left, its content, its comments. The
+   frame reaches into the gutter, so moving from the text to a button never
+   leaves the block, and the gutter's buttons stay while the pointer is on
+   them. */
 .content main,
 .beside {
-  --gutter: 64px;
+  --gutter: 76px;
 }
 
 .content main {
@@ -441,23 +444,25 @@ main [id] {
 
 .block-frame {
   position: relative;
+  margin-left: calc(-1 * var(--gutter));
+  padding-left: var(--gutter);
 }
 
 .gutter {
   position: absolute;
-  left: calc(-1 * var(--gutter));
+  left: 0;
   top: 2px;
-  width: calc(var(--gutter) - 8px);
+  width: calc(var(--gutter) - 6px);
   display: none;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 4px;
   font-size: 0.75rem;
   color: var(--muted);
 }
 
-/* The gutter of nested blocks would land on their parents' text, so it is
-   shown only for the block the pointer is on. */
+/* Only the block the pointer is on shows its gutter; a nested block's frame
+   is its own, apart from its parent's. */
 .block-frame:hover > .gutter {
   display: flex;
 }

@@ -15,7 +15,7 @@ import { kbPages, pageFile } from "./kb.ts";
 // A change to the discussion's own content blocks the page until it is
 // reloaded; a change to a linked page, or an announced one, is information.
 export type Change =
-  | { kind: "source"; message: string } // reloading opens a new discussion on the source
+  | { kind: "source"; message: string } // the discussion is refreshed from its source
   | { kind: "version"; message: string } // reloading shows the new version
   | { kind: "linked"; page: string; message: string } // a page the discussion links to
   | { kind: "info"; message: string }; // announced by a side, such as a merged merge request

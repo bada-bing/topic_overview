@@ -12,6 +12,6 @@ export async function resume([source]: string[], context: Context): Promise<void
   const { discussion } = await context.store.read(ref);
   console.log(`${url(ref)}\nversion ${discussion.version}, ${discussion.annotations.length} open comments`);
   if (await sourceChanged(discussion.source, discussion.sourceHash)) {
-    console.log(`the source has changed since the discussion opened; open it again with: topic open ${ref.source} ${discussion.source}`);
+    console.log(`the source has changed since the discussion opened; refresh the discussion from it with: topic open ${ref.source} ${discussion.source}`);
   }
 }

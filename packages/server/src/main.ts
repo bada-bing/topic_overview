@@ -26,7 +26,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const DISCUSSION = /^\/api\/discussions\/([^/]+)\/([^/]+)$/;
-const EVENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/(events|changed|reopen)$/;
+const EVENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/(events|changed|refresh)$/;
 const ATTACHMENT = /^\/api\/discussions\/([^/]+)\/([^/]+)\/attachments\/([^/]+)$/;
 const COMMENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/comments(?:\/([^/]+))?$/;
 const PREVIEW = /^\/api\/preview\/(.+)$/;
@@ -65,8 +65,9 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
 }
 
 // GET …/events is the stream of changes to an open page. POST …/changed
-// announces a change from outside. POST …/reopen closes the discussion and
-// opens a new one on its source, as it is now.
+// announces a change from outside. POST …/refresh refreshes the discussion
+// from its source: it copies the source again as it is now, into a discussion
+// of its own, and closes the old one with its comments.
 async function handleAction(request: IncomingMessage, response: ServerResponse, match: RegExpExecArray): Promise<void> {
   const ref = { source: decodeURIComponent(match[1]), startedAt: decodeURIComponent(match[2]) };
   const verb = match[3];
@@ -76,7 +77,7 @@ async function handleAction(request: IncomingMessage, response: ServerResponse, 
     const pages = changes.announce(ref, message?.trim() || "Something this discussion depends on has changed.");
     return send(response, 200, { pages });
   }
-  if (verb === "reopen" && request.method === "POST") {
+  if (verb === "refresh" && request.method === "POST") {
     const { discussion } = await store.read(ref);
     const opened = await openOnLogseqPage(store, ref.source, discussion.source);
     return send(response, 200, { ref: opened });

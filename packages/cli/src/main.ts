@@ -6,9 +6,11 @@ import { parseArgs } from "node:util";
 import { StoreError } from "@topic-overview/core";
 
 import { close } from "./commands/close.ts";
+import { list } from "./commands/list.ts";
 import { open } from "./commands/open.ts";
 import { resume } from "./commands/resume.ts";
 import { save } from "./commands/save.ts";
+import { status } from "./commands/status.ts";
 import { type Context, context } from "./context.ts";
 
 const COMMANDS: Record<string, (args: string[], context: Context) => Promise<void>> = {
@@ -16,6 +18,8 @@ const COMMANDS: Record<string, (args: string[], context: Context) => Promise<voi
   resume,
   close,
   save,
+  list,
+  status,
 };
 
 const { positionals, values } = parseArgs({ allowPositionals: true, options: { session: { type: "string" }, from: { type: "string" } } });

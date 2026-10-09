@@ -680,3 +680,85 @@ main [id] {
 .attachment-table th {
   background: var(--code-background);
 }
+
+/* A change from outside covers the page, so nothing but reloading is done
+   on content that is out of date. */
+.change-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+}
+
+.change-notice {
+  max-width: 460px;
+  padding: 20px 24px;
+  background: var(--background);
+  border: 1px solid var(--now);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+.change-consequence {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.change-notice button {
+  font: inherit;
+  cursor: pointer;
+  padding: 4px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--now);
+  background: var(--now-tint);
+  color: var(--text);
+}
+
+/* Changes that are information sit in a corner, never over the content. */
+.notices {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+}
+
+.notice {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--link);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+  font-size: 0.9em;
+}
+
+.notice span {
+  flex: 1;
+}
+
+.notice button {
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  background: var(--code-background);
+  color: var(--text);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1px 8px;
+}
+
+.notice .notice-dismiss {
+  background: none;
+  border: none;
+  color: var(--muted);
+}

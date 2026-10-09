@@ -21,3 +21,8 @@ export function loadPreview(name: string): Promise<PagePreview> {
   }
   return preview;
 }
+
+// A linked page that has changed is fetched again on the next hover.
+export function forgetPreview(name: string): void {
+  cache.delete(name);
+}

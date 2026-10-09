@@ -14,6 +14,8 @@ import { isSection, outline, sectionOf } from "./outline.ts";
 import { OpenPageContext } from "./column.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { CommentList } from "./components/CommentList.tsx";
+import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
+import { forgetPreview } from "./previews.ts";
 import { RelateContext, relatedTo } from "./relate.ts";
 import { taskHeader } from "./task.ts";
 import "./style.css";
@@ -110,6 +112,31 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
     return () => document.removeEventListener("click", onClick);
   });
 
+  // What changed outside while the page is open, told by the server. Once
+  // something has, the page allows nothing but reloading.
+  const [outsideChange, setOutsideChange] = createSignal<BlockingChange | undefined>(undefined);
+  const [notices, setNotices] = createSignal<Notice[]>([]);
+  let noticeCount = 0;
+  onSettled(() => {
+    const events = new EventSource(`${base}/events`);
+    events.addEventListener("change", (event) => {
+      const change = JSON.parse((event as MessageEvent).data) as Change;
+      if (isBlocking(change)) return setOutsideChange(change);
+      if (change.kind === "linked") forgetPreview(change.page);
+      noticeCount += 1;
+      setNotices([...notices(), { id: noticeCount, change }]);
+    });
+    return () => events.close();
+  });
+  const dismiss = (id: number) => setNotices(notices().filter((notice) => notice.id !== id));
+  // A linked page open beside is shown again as it is now: the column is
+  // created anew for it.
+  const showAgain = (page: string) => {
+    setBeside(undefined);
+    queueMicrotask(() => setBeside({ page }));
+    setNotices(notices().filter((notice) => notice.change.kind !== "linked" || notice.change.page !== page));
+  };
+
   // A block named in the URL is jumped to once the discussion has loaded;
   // the compute waits for it, the apply runs once it is there.
   createEffect(
@@ -123,6 +150,8 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   return (
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
+        <Show when={outsideChange()}>{(shown) => <ChangeNotice change={shown()} base={base} />}</Show>
+        <Notices notices={notices()} shownBeside={besidePage()} onShowAgain={showAgain} onDismiss={dismiss} />
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <CommentsContext value={comments}>

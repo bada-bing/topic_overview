@@ -50,6 +50,13 @@ export class Changes {
       this.watched.set(key, entry);
     }
     entry.pages.add(response);
+    // A source that changed while no page was open is told at once, so the
+    // page never shows a copy that is already out of date.
+    const { discussion } = await this.store.read(ref);
+    if (!discussion.closed && (await sourceChanged(discussion.source, discussion.sourceHash))) {
+      const change: Change = { kind: "source", message: "The source of this discussion has changed since it was opened." };
+      response.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
+    }
     const heartbeat = setInterval(() => response.write(": heartbeat\n\n"), HEARTBEAT);
     response.on("close", () => {
       clearInterval(heartbeat);

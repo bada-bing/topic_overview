@@ -15,6 +15,7 @@ import { OpenPageContext } from "./column.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { CommentList } from "./components/CommentList.tsx";
 import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
+import { readAnswer } from "./http.ts";
 import { forgetPreview } from "./previews.ts";
 import { RelateContext, relatedTo } from "./relate.ts";
 import { taskHeader } from "./task.ts";
@@ -23,10 +24,7 @@ import "./style.css";
 const ROUTE = /^\/d\/([^/]+)\/([^/]+)\/?$/;
 
 async function fetchDiscussion(source: string, startedAt: string): Promise<DiscussionView> {
-  const response = await fetch(`/api/discussions/${source}/${startedAt}`);
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error ?? `the server answered ${response.status}`);
-  return body as DiscussionView;
+  return readAnswer<DiscussionView>(await fetch(`/api/discussions/${source}/${startedAt}`));
 }
 
 function DiscussionPage(props: { source: string; startedAt: string }) {

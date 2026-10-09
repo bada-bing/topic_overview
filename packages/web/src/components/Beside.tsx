@@ -5,6 +5,7 @@ import type { Attachment } from "@topic-overview/core";
 import type { Block, Page } from "@topic-overview/core/page";
 
 import { ColumnContext, SourcePageContext } from "../column.ts";
+import { readAnswer } from "../http.ts";
 import { parseTable } from "../table.ts";
 import { Blocks } from "./Blocks.tsx";
 import { Diagram } from "./Diagram.tsx";
@@ -38,10 +39,7 @@ export function BesideSection(props: { block: Block; onClose: () => void }) {
 }
 
 async function fetchPage(name: string): Promise<Page> {
-  const response = await fetch(`/api/source/${encodeURIComponent(name)}`, { cache: "no-store" });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error ?? `the server answered ${response.status}`);
-  return body as Page;
+  return readAnswer<Page>(await fetch(`/api/source/${encodeURIComponent(name)}`, { cache: "no-store" }));
 }
 
 // Another page of the knowledge base, read as it is now. Its blocks are

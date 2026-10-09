@@ -1,4 +1,6 @@
 import { Show, createSignal } from "solid-js";
+
+import { readAnswer } from "../http.ts";
 import { For } from "solid-js";
 
 // A change from outside, as the server tells it. A change to the
@@ -57,9 +59,9 @@ export function ChangeNotice(props: { change: BlockingChange; base: string }) {
   const [failure, setFailure] = createSignal<string | undefined>(undefined);
   const reopen = async () => {
     try {
-      const response = await fetch(`${props.base}/reopen`, { method: "POST" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? `the server answered ${response.status}`);
+      const body = await readAnswer<{ ref: { source: string; startedAt: string } }>(
+        await fetch(`${props.base}/reopen`, { method: "POST" }),
+      );
       location.assign(`/d/${encodeURIComponent(body.ref.source)}/${encodeURIComponent(body.ref.startedAt)}`);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));

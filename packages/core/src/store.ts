@@ -52,7 +52,14 @@ export class Store {
 
   // Opens a discussion on a copy of its source, closing the one still open on
   // the same source. The copy is refused when it is not a valid page.
-  async open(source: string, sourcePath: string, pageMd: string, session?: SessionInfo, now = new Date()): Promise<DiscussionRef> {
+  async open(
+    source: string,
+    sourcePath: string,
+    pageMd: string,
+    session?: SessionInfo,
+    now = new Date(),
+    sourceHash?: string,
+  ): Promise<DiscussionRef> {
     checkName(source);
     refuseInvalid(pageMd);
 
@@ -65,6 +72,7 @@ export class Store {
     await git(dir, "init", "--quiet", "--initial-branch=main");
 
     const discussion = newDiscussion(sourcePath, now.toISOString());
+    if (sourceHash) discussion.sourceHash = sourceHash;
     if (session) discussion.sessions.push(session);
     await writeFile(join(dir, "page.md"), pageMd);
     await this.write(ref, discussion);

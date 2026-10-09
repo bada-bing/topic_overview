@@ -17,6 +17,7 @@ export interface Annotation {
 
 export interface Discussion {
   source: string; // where the copy came from, such as a Logseq page's path
+  sourceHash?: string; // the SHA-256 of the source as it was copied
   opened: string;
   closed: string | null;
   version: number;

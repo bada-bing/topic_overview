@@ -17,7 +17,7 @@ export class KbError extends Error {}
 
 const PREVIEW_LINES = 3;
 
-function kbPages(): string {
+export function kbPages(): string {
   const configured = process.env.TOPIC_OVERVIEW_KB;
   if (!configured) throw new KbError("no knowledge base is configured");
   const root = configured.startsWith("~/") ? join(homedir(), configured.slice(2)) : configured;
@@ -26,7 +26,7 @@ function kbPages(): string {
 
 // Logseq writes a page named `a/b` as `a%2Fb.md`, and matches names without
 // regard to case.
-async function pageFile(name: string): Promise<string> {
+export async function pageFile(name: string): Promise<string> {
   const pages = kbPages();
   const wanted = `${name.replaceAll("/", "%2F")}.md`.toLowerCase();
   const file = (await readdir(pages)).find((entry) => entry.toLowerCase() === wanted);

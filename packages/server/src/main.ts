@@ -3,7 +3,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname } from "node:path";
 
 import { parsePage } from "@topic-overview/core";
-import { Store, StoreError } from "@topic-overview/core";
+import { Store, StoreError, openOnLogseqPage } from "@topic-overview/core";
+
+import { Changes } from "./changes.ts";
 
 import { KbError, previewKbPage, readKbPage } from "./kb.ts";
 
@@ -11,6 +13,7 @@ const HOST = "127.0.0.1";
 const PORT = Number(process.env.TOPIC_OVERVIEW_PORT ?? 4310);
 
 const store = new Store();
+const changes = new Changes(store);
 
 // An attachment's file is served as its kind; diagrams and tables are text.
 const CONTENT_TYPES: Record<string, string> = {
@@ -23,6 +26,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const DISCUSSION = /^\/api\/discussions\/([^/]+)\/([^/]+)$/;
+const EVENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/(events|changed|reopen)$/;
 const ATTACHMENT = /^\/api\/discussions\/([^/]+)\/([^/]+)\/attachments\/([^/]+)$/;
 const COMMENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/comments(?:\/([^/]+))?$/;
 const PREVIEW = /^\/api\/preview\/(.+)$/;
@@ -41,6 +45,8 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
       attachments: contents.attachments,
     });
   }
+  const action = EVENTS.exec(url.pathname);
+  if (action) return handleAction(request, response, action);
   const attachment = ATTACHMENT.exec(url.pathname);
   if (request.method === "GET" && attachment) {
     const ref = { source: decodeURIComponent(attachment[1]), startedAt: decodeURIComponent(attachment[2]) };
@@ -56,6 +62,26 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   const source = SOURCE.exec(url.pathname);
   if (request.method === "GET" && source) return send(response, 200, await readKbPage(decodeURIComponent(source[1])));
   send(response, 404, { error: "not found" });
+}
+
+// GET …/events is the stream of changes to an open page. POST …/changed
+// announces a change from outside. POST …/reopen closes the discussion and
+// opens a new one on its source, as it is now.
+async function handleAction(request: IncomingMessage, response: ServerResponse, match: RegExpExecArray): Promise<void> {
+  const ref = { source: decodeURIComponent(match[1]), startedAt: decodeURIComponent(match[2]) };
+  const verb = match[3];
+  if (verb === "events" && request.method === "GET") return changes.subscribe(ref, response);
+  if (verb === "changed" && request.method === "POST") {
+    const { message } = await readJson<{ message?: string }>(request).catch(() => ({ message: undefined }));
+    const pages = changes.announce(ref, message?.trim() || "Something this discussion depends on has changed.");
+    return send(response, 200, { pages });
+  }
+  if (verb === "reopen" && request.method === "POST") {
+    const { discussion } = await store.read(ref);
+    const opened = await openOnLogseqPage(store, ref.source, discussion.source);
+    return send(response, 200, { ref: opened });
+  }
+  send(response, 405, { error: "method not allowed" });
 }
 
 // POST …/comments adds a comment; PATCH and DELETE …/comments/<id> edit and

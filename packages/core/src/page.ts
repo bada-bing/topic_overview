@@ -166,3 +166,14 @@ export function relations(page: Page): Map<string, Set<string>> {
   }
   return related;
 }
+
+// The pages a page links to with [[name]]. A link written inside code is
+// text, and links to nothing.
+export function pageLinks(page: Page): Set<string> {
+  const links = new Set<string>();
+  for (const block of walk(page.blocks)) {
+    const prose = block.text.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+    for (const match of prose.matchAll(/\[\[([^\]\n]+)\]\]/g)) links.add(match[1]);
+  }
+  return links;
+}

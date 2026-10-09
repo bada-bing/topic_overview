@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { labels, parsePage, relations } from "./page.ts";
+import { labels, pageLinks, parsePage, relations } from "./page.ts";
 
 const PAGE = parsePage(`- G1: Grow enough vegetables
   id:: b1
@@ -22,4 +22,9 @@ test("a block relates to what it references and to the labels it mentions", () =
   assert.deepEqual([...related.get("b3")!], ["b1"]);
   assert.deepEqual([...related.get("b4")!].sort(), ["b2", "b3"]);
   assert.equal(related.has("b1"), false);
+});
+
+test("a page's links to other pages are found, but not inside code", () => {
+  const page = parsePage("- see [[Seed catalogue]] and [[Tools/Spade]]\n  id:: a\n- not `[[Code]]`\n  id:: b\n");
+  assert.deepEqual([...pageLinks(page)].sort(), ["Seed catalogue", "Tools/Spade"]);
 });

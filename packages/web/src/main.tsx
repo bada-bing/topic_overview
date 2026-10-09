@@ -121,6 +121,8 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
     const events = new EventSource(`${base}/events`);
     events.addEventListener("change", (event) => {
       const change = JSON.parse((event as MessageEvent).data) as Change;
+      // A new version is what a hand-over asked for, so it is shown at once.
+      if (change.kind === "version") return location.reload();
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
       noticeCount += 1;

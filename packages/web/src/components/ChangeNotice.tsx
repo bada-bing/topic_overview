@@ -9,10 +9,12 @@ export type Change =
   | { kind: "linked"; page: string; message: string }
   | { kind: "info"; message: string };
 
-export type BlockingChange = Extract<Change, { kind: "source" | "version" }>;
+// Only a changed source blocks the page: what it shows is out of date, and
+// the way out is a new discussion. A new version is shown at once instead.
+export type BlockingChange = Extract<Change, { kind: "source" }>;
 
 export function isBlocking(change: Change): change is BlockingChange {
-  return change.kind === "source" || change.kind === "version";
+  return change.kind === "source";
 }
 
 export interface Notice {
@@ -49,12 +51,11 @@ export function Notices(props: {
   );
 }
 
-// What changed while the page was open. It covers the page and allows only
-// reloading, so no time goes into content that is already out of date.
+// A changed source. It covers the page and allows only opening a new
+// discussion, so no time goes into content that is already out of date.
 export function ChangeNotice(props: { change: BlockingChange; base: string }) {
   const [failure, setFailure] = createSignal<string | undefined>(undefined);
-  const reload = async () => {
-    if (props.change.kind === "version") return location.reload();
+  const reopen = async () => {
     try {
       const response = await fetch(`${props.base}/reopen`, { method: "POST" });
       const body = await response.json();
@@ -69,12 +70,10 @@ export function ChangeNotice(props: { change: BlockingChange; base: string }) {
       <div class="change-notice">
         <p>{props.change.message}</p>
         <p class="change-consequence">
-          {props.change.kind === "source"
-            ? "Reloading closes this discussion and opens a new one on the source as it is now."
-            : "Reloading shows the new version."}
+          Opening a new discussion closes this one and copies the source as it is now.
         </p>
-        <button type="button" onClick={() => void reload()}>
-          Reload
+        <button type="button" onClick={() => void reopen()}>
+          Open a new discussion
         </button>
         <Show when={failure()}>
           <p class="error">{failure()}</p>

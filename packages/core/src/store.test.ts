@@ -70,6 +70,12 @@ test("an invalid page reports every problem", () => {
   assert.match(problems.join("\n"), /references y/);
 });
 
+test("a discussion commits under the tool's own identity", async () => {
+  const ref = await store.open("garden", "/notes/garden.md", PAGE);
+  const author = execFileSync("git", ["-C", store.directory(ref), "log", "-1", "--format=%an <%ae>"], { encoding: "utf8" }).trim();
+  assert.equal(author, "topic overview <topic-overview@localhost>");
+});
+
 test("opening a discussion creates its own repository with round 1", async () => {
   const ref = await store.open("garden", "/notes/garden.md", PAGE, SESSION, new Date(2026, 9, 12, 14, 30));
   assert.deepEqual(ref, { source: "garden", startedAt: "2026-10-12-1430" });

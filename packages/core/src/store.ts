@@ -272,8 +272,13 @@ async function git(dir: string, ...args: string[]): Promise<string> {
   return stdout;
 }
 
+// The tool commits under an identity of its own, so a commit never depends on
+// how the machine's git is set up; who worked on a version is its Session
+// trailer.
+const AUTHOR = ["-c", "user.name=topic overview", "-c", "user.email=topic-overview@localhost"];
+
 async function commit(dir: string, subject: string, session?: SessionInfo): Promise<void> {
   await git(dir, "add", "--all");
   const message = session ? `${subject}\n\nSession: ${session.id}` : subject;
-  await git(dir, "commit", "--quiet", "--allow-empty", "-m", message);
+  await run("git", [...AUTHOR, "-C", dir, "commit", "--quiet", "--allow-empty", "-m", message]);
 }

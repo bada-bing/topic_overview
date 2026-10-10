@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 import { StoreError } from "@topic-overview/core";
 
 import { close } from "./commands/close.ts";
+import { integration } from "./commands/integration.ts";
 import { list } from "./commands/list.ts";
 import { open } from "./commands/open.ts";
 import { resume } from "./commands/resume.ts";
@@ -20,9 +21,10 @@ const COMMANDS: Record<string, (args: string[], context: Context) => Promise<voi
   save,
   list,
   status,
+  integration,
 };
 
-const { positionals, values } = parseArgs({ allowPositionals: true, options: { session: { type: "string" }, from: { type: "string" } } });
+const { positionals, values } = parseArgs({ allowPositionals: true, options: { session: { type: "string" }, from: { type: "string" }, label: { type: "string" } } });
 const [verb, ...args] = positionals;
 const command = verb ? COMMANDS[verb] : undefined;
 
@@ -31,7 +33,7 @@ if (!command) {
   process.exit(1);
 }
 
-command(args, context(values.session, values.from)).catch((error: unknown) => {
+command(args, context(values.session, values.from, values.label)).catch((error: unknown) => {
   console.error(error instanceof StoreError ? error.message : error);
   process.exit(1);
 });

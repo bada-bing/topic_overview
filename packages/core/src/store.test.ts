@@ -161,3 +161,16 @@ test("a discussion can carry the sessions of the one it replaces", async () => {
   const ref = await store.open("garden", "/notes/garden.md", PAGE, OTHER, new Date(), { carried: [SESSION] });
   assert.deepEqual((await store.read(ref)).discussion.sessions.map((session) => session.id), ["session-a", "session-b"]);
 });
+
+test("integrations are added once, survive a new version and carry over", async () => {
+  const ref = await store.open("garden", "/notes/garden.md", PAGE);
+  const first = await store.addIntegration(ref, "local", "garden:server");
+  assert.deepEqual(await store.addIntegration(ref, "local", "garden:server"), first);
+  await assert.rejects(store.addIntegration(ref, "printer", "x"), /not a kind of integration/);
+  await store.saveVersion(ref, PAGE, 1, SESSION);
+  assert.deepEqual((await store.read(ref)).discussion.integrations, [first]);
+  const next = await store.open("garden", "/notes/garden.md", PAGE, undefined, new Date(Date.now() + 120_000), { integrations: [first] });
+  assert.deepEqual((await store.read(next)).discussion.integrations, [first]);
+  await store.removeIntegration(next, first.id);
+  assert.deepEqual((await store.read(next)).discussion.integrations, []);
+});

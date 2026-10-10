@@ -142,6 +142,7 @@ author, or is about a block that is not on the page.
   "closed": null,
   "version": 1,
   "sessions": [{ "id": "…", "transcript": "…" }],
+  "integrations": [{ "id": "i1", "kind": "local", "reference": "project:process", "label": "…" }],
   "annotations": [
     { "id": "…", "type": "comment", "target": "b3", "author": "me", "time": "…", "body": "…" }
   ]
@@ -150,6 +151,12 @@ author, or is about a block that is not on the page.
 
 - `sourceHash` is the SHA-256 of the source as it was copied; a source whose
   hash differs has changed since.
+- `integrations` are what the discussion depends on outside its source, added
+  with `topic integration add <source> <kind> <reference>`: `local`, a process
+  of the process manager, named `project:process`; `cluster`, a deployment in a
+  Kubernetes cluster; `jenkins`, a job. They survive every version and carry
+  over when the discussion is refreshed. Only `local` is asked for its state
+  so far.
 - `resolution` is set when the discussion is closed, saying why: `on-demand`
   when it was closed with `topic close`, `source-changed` when it was
   refreshed from its changed source, and `started-over` when a new discussion

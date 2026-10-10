@@ -11,7 +11,17 @@ import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 
 import { type Attachment, readAttachments, validateAttachments } from "./attachments.ts";
-import { type Annotation, type Discussion, type Resolution, newDiscussion, parseDiscussion, serializeDiscussion } from "./discussion.ts";
+import {
+  type Annotation,
+  type Discussion,
+  INTEGRATION_KINDS,
+  type Integration,
+  type IntegrationKind,
+  type Resolution,
+  newDiscussion,
+  parseDiscussion,
+  serializeDiscussion,
+} from "./discussion.ts";
 import { parsePage, validatePage } from "./page.ts";
 
 const run = promisify(execFile);
@@ -35,6 +45,7 @@ export interface DiscussionRef {
 export interface OpenOptions {
   sourceHash?: string; // the SHA-256 of the source as it was copied
   carried?: SessionInfo[]; // sessions of the discussion this one replaces
+  integrations?: Integration[]; // integrations of the discussion this one replaces
   closing?: Resolution; // why the discussion still open on the source is closed
 }
 
@@ -66,7 +77,7 @@ export class Store {
     now = new Date(),
     options: OpenOptions = {},
   ): Promise<DiscussionRef> {
-    const { sourceHash, carried = [], closing = "started-over" } = options;
+    const { sourceHash, carried = [], integrations = [], closing = "started-over" } = options;
     checkName(source);
     refuseInvalid(pageMd);
 
@@ -81,6 +92,7 @@ export class Store {
     const discussion = newDiscussion(sourcePath, now.toISOString());
     if (sourceHash) discussion.sourceHash = sourceHash;
     for (const known of carried) addSession(discussion, known);
+    discussion.integrations = [...integrations];
     if (session) addSession(discussion, session);
     await writeFile(join(dir, "page.md"), pageMd);
     await this.write(ref, discussion);
@@ -172,6 +184,35 @@ export class Store {
     await commit(dir, `Save version ${discussion.version}`, session);
     await git(dir, "tag", `round-${discussion.version}`);
     return discussion.version;
+  }
+
+  async addIntegration(ref: DiscussionRef, kind: string, reference: string, label?: string, session?: SessionInfo): Promise<Integration> {
+    if (!INTEGRATION_KINDS.includes(kind as IntegrationKind)) {
+      throw new StoreError(`${kind} is not a kind of integration: ${INTEGRATION_KINDS.join(", ")}`);
+    }
+    if (!reference.trim()) throw new StoreError("an integration needs a reference");
+    const { discussion } = await this.readOpen(ref);
+    const integrations = discussion.integrations ?? [];
+    const existing = integrations.find((known) => known.kind === kind && known.reference === reference);
+    if (existing) return existing;
+    const taken = new Set(integrations.map((known) => known.id));
+    let number = integrations.length + 1;
+    while (taken.has(`i${number}`)) number += 1;
+    const integration: Integration = { id: `i${number}`, kind: kind as IntegrationKind, reference, ...(label ? { label } : {}) };
+    discussion.integrations = [...integrations, integration];
+    if (session) addSession(discussion, session);
+    await this.write(ref, discussion);
+    await commit(this.directory(ref), `Add the ${kind} integration ${reference}`, session);
+    return integration;
+  }
+
+  async removeIntegration(ref: DiscussionRef, id: string, session?: SessionInfo): Promise<void> {
+    const { discussion } = await this.readOpen(ref);
+    const integration = (discussion.integrations ?? []).find((known) => known.id === id);
+    if (!integration) throw new StoreError(`there is no integration ${id}`);
+    discussion.integrations = (discussion.integrations ?? []).filter((known) => known.id !== id);
+    await this.write(ref, discussion);
+    await commit(this.directory(ref), `Remove the ${integration.kind} integration ${integration.reference}`, session);
   }
 
   async close(ref: DiscussionRef, resolution: Resolution, session?: SessionInfo, now = new Date()): Promise<void> {

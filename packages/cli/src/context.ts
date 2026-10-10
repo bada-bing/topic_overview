@@ -6,14 +6,15 @@ export interface Context {
   store: Store;
   session?: SessionInfo;
   from?: number; // the version a copy was made from
+  label?: string; // a name to show for what is added
 }
 
 // pnpm runs the command from the repository, and keeps the directory it was
 // called from in INIT_CWD; the session's transcript lives under that one.
-export function context(sessionId: string | undefined, from: string | undefined): Context {
+export function context(sessionId: string | undefined, from: string | undefined, label?: string): Context {
   const store = new Store();
   const session = sessionId ? claudeSession(sessionId, process.env.INIT_CWD ?? process.cwd()) : undefined;
-  return { store, session, from: from === undefined ? undefined : Number(from) };
+  return { store, session, label, from: from === undefined ? undefined : Number(from) };
 }
 
 export function url(ref: DiscussionRef): string {

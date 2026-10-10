@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { convertLogseq } from "./logseq.ts";
-import type { Resolution } from "./discussion.ts";
+import type { Integration, Resolution } from "./discussion.ts";
 import type { DiscussionRef, SessionInfo, Store } from "./store.ts";
 
 export function fingerprint(text: string): string {
@@ -22,9 +22,15 @@ export async function openOnLogseqPage(
   session?: SessionInfo,
   carried: SessionInfo[] = [],
   closing: Resolution = "started-over",
+  integrations: Integration[] = [],
 ): Promise<DiscussionRef> {
   const text = await readFile(path, "utf8");
-  return store.open(source, path, convertLogseq(text), session, new Date(), { sourceHash: fingerprint(text), carried, closing });
+  return store.open(source, path, convertLogseq(text), session, new Date(), {
+    sourceHash: fingerprint(text),
+    carried,
+    closing,
+    integrations,
+  });
 }
 
 // Whether the source differs from the copy a discussion was opened on. A

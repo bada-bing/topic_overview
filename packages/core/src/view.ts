@@ -10,4 +10,11 @@ export interface DiscussionView {
   discussion: Discussion;
   page: Page;
   attachments: Attachment[];
+  earlier: EarlierDiscussion[]; // the other discussions of the same source, oldest first
+}
+
+export interface EarlierDiscussion {
+  startedAt: string;
+  version: number;
+  closed: string | null;
 }

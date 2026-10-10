@@ -38,11 +38,18 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   if (request.method === "GET" && discussion) {
     const ref = { source: decodeURIComponent(discussion[1]), startedAt: decodeURIComponent(discussion[2]) };
     const contents = await store.read(ref);
+    const earlier = [];
+    for (const other of await store.discussionsOf(ref.source)) {
+      if (other.startedAt === ref.startedAt) continue;
+      const { discussion } = await store.read(other);
+      earlier.push({ startedAt: other.startedAt, version: discussion.version, closed: discussion.closed });
+    }
     return send(response, 200, {
       ref,
       discussion: contents.discussion,
       page: parsePage(contents.pageMd),
       attachments: contents.attachments,
+      earlier,
     });
   }
   const action = EVENTS.exec(url.pathname);

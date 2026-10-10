@@ -762,3 +762,24 @@ main [id] {
   border: none;
   color: var(--muted);
 }
+
+.metadata-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 4px 0 12px;
+  font-size: 0.9em;
+}
+
+.metadata-list dt {
+  color: var(--muted);
+}
+
+.metadata-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--muted);
+}

@@ -7,6 +7,7 @@ import { labels, relations, walk } from "@topic-overview/core/page";
 import { AttachmentList } from "./components/AttachmentList.tsx";
 import { BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
+import { Metadata } from "./components/Metadata.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
@@ -22,6 +23,9 @@ import { taskHeader } from "./task.ts";
 import "./style.css";
 
 const ROUTE = /^\/d\/([^/]+)\/([^/]+)\/?$/;
+// Section 0, the metadata, folds and is listed like any other section, under
+// a key no block has.
+const METADATA = "metadata";
 
 async function fetchDiscussion(source: string, startedAt: string): Promise<DiscussionView> {
   return readAnswer<DiscussionView>(await fetch(`/api/discussions/${source}/${startedAt}`));
@@ -29,8 +33,16 @@ async function fetchDiscussion(source: string, startedAt: string): Promise<Discu
 
 function DiscussionPage(props: { source: string; startedAt: string }) {
   const view = createMemo(() => fetchDiscussion(props.source, props.startedAt));
-  const entries = createMemo(() => outline(view().page.blocks));
-  const owners = createMemo(() => sectionOf(view().page.blocks));
+  // The blocks before the first section, such as the title, come first; the
+  // metadata section follows them, then the page's own sections.
+  const firstSection = () => {
+    const index = view().page.blocks.findIndex(isSection);
+    return index === -1 ? view().page.blocks.length : index;
+  };
+  const leading = () => view().page.blocks.slice(0, firstSection());
+  const sections = () => view().page.blocks.slice(firstSection());
+  const entries = createMemo(() => [{ id: METADATA, text: "Metadata", depth: 0 }, ...outline(view().page.blocks)]);
+  const owners = createMemo(() => new Map([[METADATA, METADATA], ...sectionOf(view().page.blocks)]));
   const task = createMemo(() => taskHeader(view().page));
   // An attachment relates to the blocks it is about, so pointing at it
   // highlights them.
@@ -186,7 +198,13 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
               {(header) => <TaskHeader task={header()} discussion={discussionLine()} />}
             </Show>
             <main>
-              <For each={view().page.blocks}>
+              <For each={leading()}>{(block) => <Blocks blocks={[block]} />}</For>
+              <Metadata
+                view={view()}
+                open={open() === METADATA}
+                onToggle={() => setOpen(open() === METADATA ? undefined : METADATA)}
+              />
+              <For each={sections()}>
                 {(block) => (
                   <Show when={isSection(block)} fallback={<Blocks blocks={[block]} />}>
                     <Section

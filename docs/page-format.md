@@ -136,6 +136,7 @@ author, or is about a block that is not on the page.
 ```json
 {
   "source": "/path/to/the/source.md",
+  "sourceHash": "…",
   "opened": "2026-10-13T08:00:00.000Z",
   "closed": null,
   "version": 1,
@@ -145,6 +146,13 @@ author, or is about a block that is not on the page.
   ]
 }
 ```
+
+- `sourceHash` is the SHA-256 of the source as it was copied; a source whose
+  hash differs has changed since.
+- `resolution` is set when the discussion is closed, saying why: `on-demand`
+  when it was closed with `topic close`, `source-changed` when it was
+  refreshed from its changed source, and `started-over` when a new discussion
+  was opened on the same source while it was still open.
 
 The annotations belong to the current version and start empty with every new
 one. A comment is the only type of annotation so far.

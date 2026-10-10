@@ -119,6 +119,7 @@ test("opening again closes the open discussion, which becomes read-only", async 
   const first = await store.open("garden", "/notes/garden.md", PAGE, undefined, new Date(2026, 9, 12, 14, 30));
   const second = await store.open("garden", "/notes/garden.md", PAGE, undefined, new Date(2026, 9, 12, 16, 0));
   assert.notEqual((await store.read(first)).discussion.closed, null);
+  assert.equal((await store.read(first)).discussion.resolution, "started-over");
   await assert.rejects(store.addComment(first, "b1", "late"), /read-only/);
   assert.deepEqual(await store.openDiscussionOf("garden"), second);
   assert.deepEqual(await store.discussionsOf("garden"), [first, second]);
@@ -151,6 +152,6 @@ test("a version brings its attachments, checked against its page", async () => {
 });
 
 test("a discussion can carry the sessions of the one it replaces", async () => {
-  const ref = await store.open("garden", "/notes/garden.md", PAGE, OTHER, new Date(), undefined, [SESSION]);
+  const ref = await store.open("garden", "/notes/garden.md", PAGE, OTHER, new Date(), { carried: [SESSION] });
   assert.deepEqual((await store.read(ref)).discussion.sessions.map((session) => session.id), ["session-a", "session-b"]);
 });

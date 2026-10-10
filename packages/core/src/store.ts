@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 
 import { type Attachment, readAttachments, validateAttachments } from "./attachments.ts";
-import { type Annotation, type Discussion, newDiscussion, parseDiscussion, serializeDiscussion } from "./discussion.ts";
+import { type Annotation, type Discussion, type Resolution, newDiscussion, parseDiscussion, serializeDiscussion } from "./discussion.ts";
 import { parsePage, validatePage } from "./page.ts";
 
 const run = promisify(execFile);
@@ -30,6 +30,12 @@ export class StoreError extends Error {}
 export interface DiscussionRef {
   source: string; // the source's name, such as a task key
   startedAt: string;
+}
+
+export interface OpenOptions {
+  sourceHash?: string; // the SHA-256 of the source as it was copied
+  carried?: SessionInfo[]; // sessions of the discussion this one replaces
+  closing?: Resolution; // why the discussion still open on the source is closed
 }
 
 export interface SessionInfo {
@@ -58,14 +64,14 @@ export class Store {
     pageMd: string,
     session?: SessionInfo,
     now = new Date(),
-    sourceHash?: string,
-    carried: SessionInfo[] = [],
+    options: OpenOptions = {},
   ): Promise<DiscussionRef> {
+    const { sourceHash, carried = [], closing = "started-over" } = options;
     checkName(source);
     refuseInvalid(pageMd);
 
     const previous = await this.openDiscussionOf(source);
-    if (previous) await this.close(previous, session, now);
+    if (previous) await this.close(previous, closing, session, now);
 
     const ref = { source, startedAt: await this.freeStartedAt(source, now) };
     const dir = this.directory(ref);
@@ -168,9 +174,10 @@ export class Store {
     return discussion.version;
   }
 
-  async close(ref: DiscussionRef, session?: SessionInfo, now = new Date()): Promise<void> {
+  async close(ref: DiscussionRef, resolution: Resolution, session?: SessionInfo, now = new Date()): Promise<void> {
     const { discussion } = await this.readOpen(ref);
     discussion.closed = now.toISOString();
+    discussion.resolution = resolution;
     if (session) addSession(discussion, session);
     await this.write(ref, discussion);
     await commit(this.directory(ref), "Close the discussion", session);

@@ -15,11 +15,28 @@ export interface Annotation {
   body: string;
 }
 
+// Why a discussion was closed. A discussion closed before reasons were kept
+// has none.
+export type Resolution = "on-demand" | "source-changed" | "started-over";
+
+const RESOLUTIONS: Record<Resolution, string> = {
+  "on-demand": "on demand",
+  "source-changed": "source changed",
+  "started-over": "started over",
+};
+
+// How a discussion's state reads: open, closed, or closed for a reason.
+export function stateText(discussion: { closed: string | null; resolution?: Resolution }): string {
+  if (!discussion.closed) return "open";
+  return discussion.resolution ? `closed (${RESOLUTIONS[discussion.resolution]})` : "closed";
+}
+
 export interface Discussion {
   source: string; // where the copy came from, such as a Logseq page's path
   sourceHash?: string; // the SHA-256 of the source as it was copied
   opened: string;
   closed: string | null;
+  resolution?: Resolution; // why it was closed
   version: number;
   sessions: Session[];
   annotations: Annotation[];

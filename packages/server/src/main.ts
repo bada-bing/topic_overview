@@ -42,7 +42,12 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     for (const other of await store.discussionsOf(ref.source)) {
       if (other.startedAt === ref.startedAt) continue;
       const { discussion } = await store.read(other);
-      earlier.push({ startedAt: other.startedAt, version: discussion.version, closed: discussion.closed });
+      earlier.push({
+        startedAt: other.startedAt,
+        version: discussion.version,
+        closed: discussion.closed,
+        resolution: discussion.resolution,
+      });
     }
     return send(response, 200, {
       ref,
@@ -86,7 +91,7 @@ async function handleAction(request: IncomingMessage, response: ServerResponse, 
   }
   if (verb === "refresh" && request.method === "POST") {
     const { discussion } = await store.read(ref);
-    const opened = await openOnLogseqPage(store, ref.source, discussion.source, undefined, discussion.sessions);
+    const opened = await openOnLogseqPage(store, ref.source, discussion.source, undefined, discussion.sessions, "source-changed");
     return send(response, 200, { ref: opened });
   }
   send(response, 405, { error: "method not allowed" });

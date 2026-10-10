@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./page": "./src/page.ts"
+    "./page": "./src/page.ts",
+    "./discussion": "./src/discussion.ts"
   },
   "scripts": {
     "test": "node --test src/*.test.ts"

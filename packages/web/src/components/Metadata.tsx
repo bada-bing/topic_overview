@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 
 import type { DiscussionView } from "@topic-overview/core";
+import { stateText } from "@topic-overview/core/discussion";
 
 import { frontmatter } from "../task.ts";
 
@@ -28,7 +29,9 @@ export function Metadata(props: { view: DiscussionView; open: boolean; onToggle:
           <dt>Opened</dt>
           <dd>
             {when(props.view.discussion.opened)}, now at version {props.view.discussion.version}
-            {props.view.discussion.closed ? `, closed ${when(props.view.discussion.closed)}` : ""}
+            {props.view.discussion.closed
+              ? `, ${stateText(props.view.discussion).replace("closed", `closed ${when(props.view.discussion.closed)}`)}`
+              : ""}
           </dd>
           <Show when={fields().length > 0}>
             <dt>Frontmatter</dt>
@@ -69,7 +72,8 @@ export function Metadata(props: { view: DiscussionView; open: boolean; onToggle:
                     <span class="muted">
                       {" "}
                       · version {other.version}
-                      {other.closed ? " · closed" : " · open"}
+                      {" · "}
+                      {stateText(other)}
                     </span>
                   </div>
                 )}

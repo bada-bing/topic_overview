@@ -3,6 +3,8 @@
 
 import { readdir } from "node:fs/promises";
 
+import { stateText } from "@topic-overview/core";
+
 import { type Context, url } from "../context.ts";
 
 export async function list([source]: string[], context: Context): Promise<void> {
@@ -11,7 +13,7 @@ export async function list([source]: string[], context: Context): Promise<void> 
     for (const ref of await context.store.discussionsOf(name)) {
       const { discussion } = await context.store.read(ref);
       if (!source && discussion.closed) continue;
-      const state = discussion.closed ? "closed" : `open, version ${discussion.version}`;
+      const state = discussion.closed ? stateText(discussion) : `open, version ${discussion.version}`;
       console.log(`${ref.source}/${ref.startedAt}  ${state}  ${url(ref)}`);
     }
   }

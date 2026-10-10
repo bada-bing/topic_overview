@@ -6,6 +6,7 @@ import { parsePage } from "@topic-overview/core";
 import { Store, StoreError, openOnLogseqPage } from "@topic-overview/core";
 
 import { Changes } from "./changes.ts";
+import { GitlabError, GitlabUnreachable, mergeRequestState } from "./gitlab.ts";
 
 import { KbError, previewKbPage, readKbPage } from "./kb.ts";
 
@@ -69,6 +70,9 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
   const comments = COMMENTS.exec(url.pathname);
   if (comments) return handleComments(request, response, comments);
+  if (request.method === "GET" && url.pathname === "/api/merge-request") {
+    return send(response, 200, await mergeRequestState(url.searchParams.get("url") ?? ""));
+  }
   const preview = PREVIEW.exec(url.pathname);
   if (request.method === "GET" && preview) return send(response, 200, await previewKbPage(decodeURIComponent(preview[1])));
   const source = SOURCE.exec(url.pathname);
@@ -141,6 +145,8 @@ const server = createServer((request, response) => {
   handle(request, response).catch((error: unknown) => {
     if (error instanceof StoreError) return send(response, 400, { error: error.message });
     if (error instanceof KbError) return send(response, 404, { error: error.message });
+    if (error instanceof GitlabError) return send(response, 404, { error: error.message });
+    if (error instanceof GitlabUnreachable) return send(response, 502, { error: error.message });
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return send(response, 404, { error: "no such discussion" });
     console.error(error);
     send(response, 500, { error: "the server failed" });

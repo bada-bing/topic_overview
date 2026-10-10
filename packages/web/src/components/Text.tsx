@@ -4,6 +4,7 @@ import { MENTION } from "@topic-overview/core/page";
 
 import { OpenPageContext } from "../column.ts";
 import { DIAGRAM_LANGUAGES, Diagram } from "./Diagram.tsx";
+import { MERGE_REQUEST, MergeRequestLink } from "./MergeRequestLink.tsx";
 import { type Inline, parseText } from "../inline.ts";
 import { type PagePreview, loadPreview } from "../previews.ts";
 import { useRelate } from "../relate.ts";
@@ -41,6 +42,7 @@ function InlinePiece(props: { inline: Inline }) {
     case "code":
       return <code>{inline.text}</code>;
     case "link":
+      if (MERGE_REQUEST.test(inline.href)) return <MergeRequestLink href={inline.href} text={inline.text} />;
       return (
         <a href={inline.href} target="_blank" rel="noreferrer">
           {inline.text}

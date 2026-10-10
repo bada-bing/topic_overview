@@ -783,3 +783,18 @@ main [id] {
 .muted {
   color: var(--muted);
 }
+
+.merge-request-state {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75em;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 10px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+}
+
+.merge-request-merged { border-color: #8250df; color: #8250df; }
+.merge-request-open { border-color: var(--done); color: var(--done); }
+.merge-request-draft { border-color: var(--muted); }
+.merge-request-closed { border-color: #cf222e; color: #cf222e; }

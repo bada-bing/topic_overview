@@ -10,6 +10,7 @@ import { basename, dirname } from "node:path";
 
 import { type DiscussionRef, type Store, fingerprint, pageLinks, parsePage, sourceChanged } from "@topic-overview/core";
 
+import { type IntegrationState, integrationStates } from "./integrations.ts";
 import { kbPages, pageFile } from "./kb.ts";
 
 // A change to the discussion's own content blocks the page until it is
@@ -18,9 +19,13 @@ export type Change =
   | { kind: "source"; message: string } // the discussion is refreshed from its source
   | { kind: "version"; message: string } // reloading shows the new version
   | { kind: "linked"; page: string; message: string } // a page the discussion links to
-  | { kind: "info"; message: string }; // announced by a side, such as a merged merge request
+  | { kind: "info"; message: string } // announced by a side, such as a merged merge request
+  | { kind: "integration"; state: IntegrationState }; // an integration's state changed, for its widget
 
 const HEARTBEAT = 20_000;
+// Local processes are cheap to ask; the systems asked later get intervals of
+// their own.
+const INTEGRATION_POLL = 5_000;
 // Editors write a file in several steps; one notice follows the last of them.
 const SETTLE = 300;
 
@@ -28,6 +33,7 @@ interface Watched {
   pages: Set<ServerResponse>;
   watchers: FSWatcher[];
   version: number;
+  poll?: ReturnType<typeof setInterval>;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -104,6 +110,7 @@ export class Changes {
       }),
     );
     entry.watchers.push(...(await this.watchLinkedPages(key, ref)));
+    entry.poll = this.pollIntegrations(key, ref);
     return entry;
   }
 
@@ -139,6 +146,24 @@ export class Changes {
     ];
   }
 
+  // The integrations are read anew on every poll, so one the agent adds while
+  // a page is open is watched from then on. A change of state goes to the
+  // page's Integrations widget.
+  private pollIntegrations(key: string, ref: DiscussionRef): ReturnType<typeof setInterval> {
+    const last = new Map<string, string>();
+    const poll = async () => {
+      const { discussion } = await this.store.read(ref);
+      for (const state of await integrationStates(discussion.integrations ?? [])) {
+        const before = last.get(state.id);
+        last.set(state.id, state.state);
+        if (before === undefined || before === state.state) continue;
+        this.notify(key, { kind: "integration", state });
+      }
+    };
+    void poll().catch(() => {});
+    return setInterval(() => void poll().catch(() => {}), INTEGRATION_POLL);
+  }
+
   private notify(key: string, change: Change): number {
     const entry = this.watched.get(key);
     if (!entry) return 0;
@@ -152,6 +177,7 @@ export class Changes {
     entry.pages.delete(response);
     if (entry.pages.size > 0) return;
     clearTimeout(entry.timer);
+    clearInterval(entry.poll);
     for (const watcher of entry.watchers) watcher.close();
     this.watched.delete(key);
   }

@@ -230,7 +230,8 @@ body {
 }
 
 @media (max-width: 800px) {
-  .layout {
+  .layout,
+  .layout.with-beside {
     grid-template-columns: minmax(0, 1fr);
   }
   .sidebar {
@@ -798,3 +799,36 @@ main [id] {
 .merge-request-open { border-color: var(--done); color: var(--done); }
 .merge-request-draft { border-color: var(--muted); }
 .merge-request-closed { border-color: #cf222e; color: #cf222e; }
+
+.integration-list {
+  font-size: 0.85em;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.integration-list h3 {
+  font-size: 1em;
+  margin: 0 0 6px;
+}
+
+.integration-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 6px;
+}
+
+.integration-name {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.integration-state {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.integration-running { color: var(--done); }
+.integration-exited { color: #cf222e; }

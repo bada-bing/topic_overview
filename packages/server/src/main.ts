@@ -7,6 +7,7 @@ import { Store, StoreError, openOnLogseqPage } from "@topic-overview/core";
 
 import { Changes } from "./changes.ts";
 import { GitlabError, GitlabUnreachable, mergeRequestState } from "./gitlab.ts";
+import { integrationStates } from "./integrations.ts";
 
 import { KbError, previewKbPage, readKbPage } from "./kb.ts";
 
@@ -27,7 +28,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const DISCUSSION = /^\/api\/discussions\/([^/]+)\/([^/]+)$/;
-const EVENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/(events|changed|refresh)$/;
+const EVENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/(events|changed|refresh|integrations)$/;
 const ATTACHMENT = /^\/api\/discussions\/([^/]+)\/([^/]+)\/attachments\/([^/]+)$/;
 const COMMENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/comments(?:\/([^/]+))?$/;
 const PREVIEW = /^\/api\/preview\/(.+)$/;
@@ -88,6 +89,10 @@ async function handleAction(request: IncomingMessage, response: ServerResponse, 
   const ref = { source: decodeURIComponent(match[1]), startedAt: decodeURIComponent(match[2]) };
   const verb = match[3];
   if (verb === "events" && request.method === "GET") return changes.subscribe(ref, response);
+  if (verb === "integrations" && request.method === "GET") {
+    const { discussion } = await store.read(ref);
+    return send(response, 200, await integrationStates(discussion.integrations ?? []));
+  }
   if (verb === "changed" && request.method === "POST") {
     const { message } = await readJson<{ message?: string }>(request).catch(() => ({ message: undefined }));
     const pages = changes.announce(ref, message?.trim() || "Something this discussion depends on has changed.");
@@ -95,7 +100,15 @@ async function handleAction(request: IncomingMessage, response: ServerResponse, 
   }
   if (verb === "refresh" && request.method === "POST") {
     const { discussion } = await store.read(ref);
-    const opened = await openOnLogseqPage(store, ref.source, discussion.source, undefined, discussion.sessions, "source-changed");
+    const opened = await openOnLogseqPage(
+      store,
+      ref.source,
+      discussion.source,
+      undefined,
+      discussion.sessions,
+      "source-changed",
+      discussion.integrations ?? [],
+    );
     return send(response, 200, { ref: opened });
   }
   send(response, 405, { error: "method not allowed" });

@@ -7,6 +7,7 @@ import { labels, relations, walk } from "@topic-overview/core/page";
 import { AttachmentList } from "./components/AttachmentList.tsx";
 import { BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
+import { type IntegrationState, IntegrationList } from "./components/IntegrationList.tsx";
 import { Metadata } from "./components/Metadata.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
@@ -126,8 +127,15 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   // something has, the page allows nothing but reloading.
   const [outsideChange, setOutsideChange] = createSignal<BlockingChange | undefined>(undefined);
   const [notices, setNotices] = createSignal<Notice[]>([]);
+  // The state of each integration, asked once when the page opens and kept
+  // current by the server's notices.
+  const [states, setStates] = createSignal(new Map<string, IntegrationState>());
   let noticeCount = 0;
   onSettled(() => {
+    fetch(`${base}/integrations`)
+      .then((response) => readAnswer<IntegrationState[]>(response))
+      .then((all) => setStates(new Map(all.map((state) => [state.id, state]))))
+      .catch(() => {});
     const events = new EventSource(`${base}/events`);
     events.addEventListener("change", (event) => {
       const change = JSON.parse((event as MessageEvent).data) as Change;
@@ -135,6 +143,8 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
       if (change.kind === "version") return location.reload();
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
+      // An integration's state belongs in its widget, not in a notice.
+      if (change.kind === "integration") return setStates(new Map([...states(), [change.state.id, change.state]]));
       noticeCount += 1;
       setNotices([...notices(), { id: noticeCount, change }]);
     });
@@ -173,6 +183,7 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
           onPointerLeave={() => setPointed(undefined)}
         >
           <aside class="sidebar">
+            <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}
               open={open()}

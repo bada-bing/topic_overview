@@ -149,3 +149,8 @@ test("a version brings its attachments, checked against its page", async () => {
   await store.saveVersion(ref, PAGE, 2, SESSION);
   assert.equal((await store.read(ref)).attachments.length, 1, "a copy without attachments keeps them");
 });
+
+test("a discussion can carry the sessions of the one it replaces", async () => {
+  const ref = await store.open("garden", "/notes/garden.md", PAGE, OTHER, new Date(), undefined, [SESSION]);
+  assert.deepEqual((await store.read(ref)).discussion.sessions.map((session) => session.id), ["session-a", "session-b"]);
+});

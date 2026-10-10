@@ -86,7 +86,7 @@ async function handleAction(request: IncomingMessage, response: ServerResponse, 
   }
   if (verb === "refresh" && request.method === "POST") {
     const { discussion } = await store.read(ref);
-    const opened = await openOnLogseqPage(store, ref.source, discussion.source);
+    const opened = await openOnLogseqPage(store, ref.source, discussion.source, undefined, discussion.sessions);
     return send(response, 200, { ref: opened });
   }
   send(response, 405, { error: "method not allowed" });

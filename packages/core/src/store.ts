@@ -59,6 +59,7 @@ export class Store {
     session?: SessionInfo,
     now = new Date(),
     sourceHash?: string,
+    carried: SessionInfo[] = [],
   ): Promise<DiscussionRef> {
     checkName(source);
     refuseInvalid(pageMd);
@@ -73,7 +74,8 @@ export class Store {
 
     const discussion = newDiscussion(sourcePath, now.toISOString());
     if (sourceHash) discussion.sourceHash = sourceHash;
-    if (session) discussion.sessions.push(session);
+    for (const known of carried) addSession(discussion, known);
+    if (session) addSession(discussion, session);
     await writeFile(join(dir, "page.md"), pageMd);
     await this.write(ref, discussion);
     await commit(dir, `Open the discussion on ${source}`, session);

@@ -20,7 +20,7 @@ import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, i
 import { readAnswer } from "./http.ts";
 import { forgetPreview } from "./previews.ts";
 import { RelateContext, relatedTo } from "./relate.ts";
-import { taskHeader } from "./task.ts";
+import { frontmatter, taskHeader } from "./task.ts";
 import "./style.css";
 
 const ROUTE = /^\/d\/([^/]+)\/([^/]+)\/?$/;
@@ -158,6 +158,25 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
     queueMicrotask(() => setBeside({ page }));
     setNotices(notices().filter((notice) => notice.change.kind !== "linked" || notice.change.page !== page));
   };
+
+  // The tab shows the page's icon from its frontmatter, as an emoji drawn into
+  // an SVG, and its title: the task's key and title, or the source's name.
+  createEffect(
+    () => ({ fields: frontmatter(view().page), task: task(), source: view().ref.source }),
+    ({ fields, task: header, source }) => {
+      document.title = header ? `${header.key} · ${header.title}` : source;
+      const icon = fields.icon?.trim();
+      if (!icon) return;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${icon}</text></svg>`;
+      let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        document.head.append(link);
+      }
+      link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    },
+  );
 
   // A block named in the URL is jumped to once the discussion has loaded;
   // the compute waits for it, the apply runs once it is there.

@@ -40,7 +40,8 @@ key: value
   it, and no id repeats. A page without them is refused when it is saved.
 - **Properties.** Any other `key:: value` line under a bullet is a property of
   that block.
-- **Frontmatter.** The `---` block at the top is kept as it is.
+- **Frontmatter.** The `---` block at the top is kept as it is. Its `icon`,
+  such as an emoji, becomes the icon of the browser tab.
 - **Continuation lines.** A line indented under a bullet, other than a
   property, continues the block's text, keeping its own indentation.
 

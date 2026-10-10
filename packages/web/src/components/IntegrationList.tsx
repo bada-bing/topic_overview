@@ -21,7 +21,12 @@ export function IntegrationList(props: { integrations: Integration[]; states: Ma
             return (
               <div class="integration-entry" title={state()?.detail ?? integration.reference}>
                 <span class="attachment-kind">{integration.kind}</span>
-                <span class="integration-name">{integration.label ?? integration.reference}</span>
+                <span class="integration-name">
+                  {integration.label ?? integration.reference}
+                  <Show when={state()?.detail}>
+                    <span class="integration-detail">{state()?.detail}</span>
+                  </Show>
+                </span>
                 <span class={["integration-state", `integration-${(state()?.state ?? "unknown").replace(/\s+/g, "-")}`]}>
                   {state()?.state ?? "…"}
                 </span>

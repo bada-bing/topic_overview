@@ -10,7 +10,7 @@ import { basename, dirname } from "node:path";
 
 import { type DiscussionRef, type Store, fingerprint, pageLinks, parsePage, sourceChanged } from "@topic-overview/core";
 
-import { type IntegrationState, integrationStates } from "./integrations.ts";
+import { INTERVALS, integrationState } from "./integrations.ts";
 import { kbPages, pageFile } from "./kb.ts";
 
 // A change to the discussion's own content blocks the page until it is
@@ -20,12 +20,9 @@ export type Change =
   | { kind: "version"; message: string } // reloading shows the new version
   | { kind: "linked"; page: string; message: string } // a page the discussion links to
   | { kind: "info"; message: string } // announced by a side, such as a merged merge request
-  | { kind: "integration"; state: IntegrationState }; // an integration's state changed, for its widget
+  | { kind: "integration"; state: { id: string; state: string; detail?: string } }; // for its widget
 
 const HEARTBEAT = 20_000;
-// Local processes are cheap to ask; the systems asked later get intervals of
-// their own.
-const INTEGRATION_POLL = 5_000;
 // Editors write a file in several steps; one notice follows the last of them.
 const SETTLE = 300;
 
@@ -150,18 +147,22 @@ export class Changes {
   // a page is open is watched from then on. A change of state goes to the
   // page's Integrations widget.
   private pollIntegrations(key: string, ref: DiscussionRef): ReturnType<typeof setInterval> {
-    const last = new Map<string, string>();
+    const last = new Map<string, { state: string; detail?: string; at: number }>();
     const poll = async () => {
       const { discussion } = await this.store.read(ref);
-      for (const state of await integrationStates(discussion.integrations ?? [])) {
-        const before = last.get(state.id);
-        last.set(state.id, state.state);
-        if (before === undefined || before === state.state) continue;
-        this.notify(key, { kind: "integration", state });
+      const now = Date.now();
+      for (const integration of discussion.integrations ?? []) {
+        const before = last.get(integration.id);
+        if (before && now - before.at < INTERVALS[integration.kind]) continue;
+        const state = await integrationState(integration);
+        last.set(integration.id, { state: state.state, detail: state.detail, at: now });
+        if (before && (before.state !== state.state || before.detail !== state.detail)) {
+          this.notify(key, { kind: "integration", state });
+        }
       }
     };
     void poll().catch(() => {});
-    return setInterval(() => void poll().catch(() => {}), INTEGRATION_POLL);
+    return setInterval(() => void poll().catch(() => {}), INTERVALS.local);
   }
 
   private notify(key: string, change: Change): number {

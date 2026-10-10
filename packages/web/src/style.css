@@ -830,5 +830,14 @@ main [id] {
   color: var(--muted);
 }
 
-.integration-running { color: var(--done); }
+.integration-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.integration-running,
+.integration-ready { color: var(--done); }
+.integration-rolling-out { color: var(--now); }
+.integration-unavailable,
 .integration-exited { color: #cf222e; }

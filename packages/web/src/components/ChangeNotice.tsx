@@ -10,7 +10,7 @@ export type Change =
   | { kind: "version"; message: string }
   | { kind: "linked"; page: string; message: string }
   | { kind: "info"; message: string }
-  | { kind: "integration"; state: { id: string; state: string; detail?: string } };
+  | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string } };
 
 // Only a changed source blocks the page: what it shows is out of date, and
 // the way out is refreshing the discussion from its source. A new version is

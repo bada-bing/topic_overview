@@ -20,7 +20,7 @@ export type Change =
   | { kind: "version"; message: string } // reloading shows the new version
   | { kind: "linked"; page: string; message: string } // a page the discussion links to
   | { kind: "info"; message: string } // announced by a side, such as a merged merge request
-  | { kind: "integration"; state: { id: string; state: string; detail?: string } }; // for its widget
+  | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string } }; // for its widget
 
 const HEARTBEAT = 20_000;
 // Editors write a file in several steps; one notice follows the last of them.

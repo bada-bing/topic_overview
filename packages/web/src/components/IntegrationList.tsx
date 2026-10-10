@@ -6,6 +6,7 @@ export interface IntegrationState {
   id: string;
   state: string;
   detail?: string;
+  url?: string;
 }
 
 // What the discussion depends on outside its source, with the state each
@@ -22,7 +23,13 @@ export function IntegrationList(props: { integrations: Integration[]; states: Ma
               <div class="integration-entry" title={state()?.detail ?? integration.reference}>
                 <span class="attachment-kind">{integration.kind}</span>
                 <span class="integration-name">
-                  {integration.label ?? integration.reference}
+                  <Show when={state()?.url} fallback={integration.label ?? integration.reference}>
+                    {(url) => (
+                      <a href={url()} target="_blank" rel="noreferrer">
+                        {integration.label ?? integration.reference}
+                      </a>
+                    )}
+                  </Show>
                   <Show when={state()?.detail}>
                     <span class="integration-detail">{state()?.detail}</span>
                   </Show>

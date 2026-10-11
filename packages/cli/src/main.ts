@@ -36,21 +36,33 @@ const COMMANDS: Record<string, (args: string[], context: Context) => Promise<voi
   "set-property": setPropertyCommand,
 };
 
-const { positionals, values } = parseArgs({
-  allowPositionals: true,
-  options: {
-    session: { type: "string" },
-    from: { type: "string" },
-    label: { type: "string" },
-    after: { type: "string" },
-    before: { type: "string" },
-    into: { type: "string" },
-    line: { type: "string" },
-    text: { type: "string" },
-    nil: { type: "boolean" },
-  },
-});
+// The arguments, or the reason they could not be read, such as an option
+// given no value, said without a stack trace.
+function readArgs() {
+  try {
+    return parseArgs({
+      allowPositionals: true,
+      options: {
+        session: { type: "string" },
+        from: { type: "string" },
+        label: { type: "string" },
+        after: { type: "string" },
+        before: { type: "string" },
+        into: { type: "string" },
+        line: { type: "string" },
+        text: { type: "string" },
+        nil: { type: "boolean" },
+      },
+    });
+  } catch (error) {
+    console.error((error as Error).message);
+    process.exit(1);
+  }
+}
+
+const { positionals, values } = readArgs();
 const [verb, ...args] = positionals;
+
 const command = verb ? COMMANDS[verb] : undefined;
 
 if (!command) {

@@ -2,7 +2,7 @@
 // Moves a block with everything under it, carrying its own lines, so
 // nothing of it is retyped.
 
-import { Topics, moveBlock } from "@topic-overview/core";
+import { Topics, headingsAbove, moveBlock } from "@topic-overview/core";
 
 import { type Context, need, needPlace } from "../context.ts";
 
@@ -14,9 +14,11 @@ export async function move([key, id]: string[], context: Context): Promise<void>
   const topics = new Topics();
   const topic = need(key, USAGE);
   const description = `Move ${await topics.blockName(topic, block)} ${place} ${await topics.blockName(topic, target)}`;
+  const above = headingsAbove((await topics.source(topic)).text, block);
   const head = await topics.change(topic, description, (text) => moveBlock(text, block, place, target), {
     id: block,
     kind: "moved",
+    before: above ? `under ${above}` : "at the top of the page",
   });
   console.log(`moved ${block} at ${head}`);
 }

@@ -122,6 +122,55 @@ export function withOwnText(text: string, id: string, own: string): string {
   return [`- ${first}`, ...rest.map((line) => (line === "" ? line : `  ${line}`)), ...children].join("\n");
 }
 
+// One of a block's own properties, as it is now, if it has it.
+export function propertyOf(text: string, id: string, name: string): string | undefined {
+  const { lines, spans: all } = spans(text);
+  const span = byId(all, id);
+  for (const line of lines.slice(span.start + 1, span.own)) {
+    const property = PROPERTY.exec(line);
+    if (property?.[1] === name) return property[2];
+  }
+  return undefined;
+}
+
+// The headings a block sits under, as a path, such as Context / Links.
+export function headingsAbove(text: string, id: string): string {
+  const find = (blocks: Block[], path: string[]): string[] | undefined => {
+    for (const block of blocks) {
+      if (block.id === id) return path;
+      const below = find(block.children, block.kind === "heading" ? [...path, block.text] : path);
+      if (below) return below;
+    }
+    return undefined;
+  };
+  return (find(parsePage(text).blocks, []) ?? []).join(" / ");
+}
+
+// Where a block stood, said by what is around it once it is deleted: the
+// block that follows in its place, or else its parent, whose children it
+// ended. Both as the view knows them, by id or by place.
+export function placeOfDeleted(text: string, id: string): { next?: string; parent?: string } {
+  const find = (blocks: Block[], parent?: Block): { index: number; parent?: Block } | undefined => {
+    const index = blocks.findIndex((block) => block.id === id);
+    if (index !== -1) return { index, parent };
+    for (const block of blocks) {
+      const found = find(block.children, block);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const before = parsePage(text);
+  numberByPlace(before.blocks);
+  const found = find(before.blocks);
+  if (!found) throw new StoreError(`no block has the id ${id}`);
+  const after = parsePage(deleteBlock(text, id));
+  numberByPlace(after.blocks);
+  // Deleting a child changes neither its parent's id nor its parent's place.
+  const parentAfter = found.parent ? [...walk(after.blocks)].find((block) => block.id === found.parent!.id) : undefined;
+  const siblings = found.parent ? (parentAfter?.children ?? []) : after.blocks;
+  return { next: siblings[found.index]?.id, parent: found.parent?.id };
+}
+
 // The id of the block at the line, if it has one.
 export function idAt(text: string, line: number, first: string): string | undefined {
   return byLine(text, line, first).block.id || undefined;

@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Integration, Session } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, replaceBlock, setId, withOwnText } from "./edit.ts";
+import { type Mark, markKey } from "./mark.ts";
 import { StoreError } from "./store.ts";
 
 const run = promisify(execFile);
@@ -55,12 +56,6 @@ export interface Topic {
   marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
 }
 
-
-// A block the agent changed, marked on the page until I confirm I saw it.
-export interface Mark {
-  id: string;
-  kind: "changed" | "new" | "moved";
-}
 
 export interface OpenTopic {
   topic: Topic;
@@ -240,15 +235,15 @@ export class Topics {
   // kind it was marked with, so a new block edited further stays new.
   async mark(key: string, mark: Mark): Promise<void> {
     const topic = await this.read(key);
-    if (topic.marks?.some((known) => known.id === mark.id)) return;
+    if (topic.marks?.some((known) => markKey(known) === markKey(mark))) return;
     topic.marks = [...(topic.marks ?? []), mark];
     await this.write(topic);
   }
 
   // Confirms a change was seen, clearing its mark.
-  async clearMark(key: string, id: string): Promise<Mark[]> {
+  async clearMark(key: string, which: string): Promise<Mark[]> {
     const topic = await this.read(key);
-    topic.marks = (topic.marks ?? []).filter((known) => known.id !== id);
+    topic.marks = (topic.marks ?? []).filter((known) => markKey(known) !== which);
     await this.write(topic);
     return topic.marks;
   }

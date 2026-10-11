@@ -963,30 +963,101 @@ main [id] {
   cursor: not-allowed;
 }
 
-/* A block the agent changed, until I confirm I saw it. */
+/* A block the agent changed, until I confirm I saw it. Its colour says what
+   happened: green changed, blue added, amber moved, red removed, which is
+   drawn as a line where the block stood. */
+:root {
+  --mark-changed: #1a7f37;
+  --mark-new: #0969da;
+  --mark-moved: #bf8700;
+  --mark-removed: #cf222e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mark-changed: #3fb950;
+    --mark-new: #4493f8;
+    --mark-moved: #d29922;
+    --mark-removed: #f85149;
+  }
+}
+
 .block-frame.marked {
   position: relative;
-  outline: 1px solid var(--tint-edge);
+  outline: 1px solid var(--mark-colour);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+.marked-changed, .mark-changed, .change-changed { --mark-colour: var(--mark-changed); }
+.marked-new, .mark-new, .change-new { --mark-colour: var(--mark-new); }
+.marked-moved, .mark-moved, .change-moved { --mark-colour: var(--mark-moved); }
+.mark-removed, .change-removed { --mark-colour: var(--mark-removed); }
+
+.change-gone {
+  text-decoration: line-through;
+  color: var(--muted);
 }
 
 .block-frame.marked > .gutter {
   background: var(--tint);
 }
 
-.mark-seen {
+.mark-seen-wrap {
   position: absolute;
   right: -28px;
   top: 0;
+}
+
+.mark-seen {
   font: inherit;
   font-size: 0.85em;
   cursor: pointer;
-  background: var(--tint);
-  color: var(--text);
-  border: 1px solid var(--tint-edge);
+  background: var(--background);
+  color: var(--mark-colour);
+  border: 1px solid var(--mark-colour);
   border-radius: 4px;
   padding: 0 5px;
+}
+
+/* What the block read before, shown on the check's hover: to the left of a
+   block's check, at the page's right edge. */
+.mark-before {
+  left: auto;
+  right: 0;
+  width: 320px;
+  font-size: 0.85rem;
+  z-index: 30;
+}
+
+/* In the list of changes the sidebar crops anything past its edge, so the
+   tooltip opens below its entry, as wide as the entry. */
+.change-list-entry {
+  position: relative;
+}
+
+.mark-seen-wrap.inline {
+  position: static;
+}
+
+.mark-seen-wrap.inline > .mark-before {
+  left: 0;
+  right: 0;
+  width: auto;
+}
+
+.mark-before-label,
+.mark-before-none {
+  color: var(--muted);
+}
+
+.mark-before-text {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+
+.change-list .comment-list-entry {
+  border-left: 3px solid var(--mark-colour);
 }
 
 /* The changes the agent made sit first in the sidebar, in a box of their
@@ -1015,11 +1086,31 @@ main [id] {
   overflow-wrap: anywhere;
 }
 
-.change-list .mark-seen {
-  position: static;
-}
-
 .notice-files {
   margin: 4px 0 0;
   padding-left: 18px;
+}
+
+/* Where the agent removed a block: a red line in its place. */
+.removed-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+  --mark-colour: var(--mark-removed);
+}
+
+.removed-line hr {
+  flex: 1;
+  border: none;
+  border-top: 2px solid var(--mark-removed);
+  margin: 0;
+}
+
+/* An entry with no place to lead to is not a link, and does not look like one. */
+.change-list span.comment-list-entry,
+.change-list span.comment-list-entry:hover {
+  background: none;
+  cursor: default;
 }

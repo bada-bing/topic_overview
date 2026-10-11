@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./page": "./src/page.ts",
-    "./discussion": "./src/discussion.ts"
+    "./discussion": "./src/discussion.ts",
+    "./mark": "./src/mark.ts"
   },
   "scripts": {
     "test": "node --test src/*.test.ts"

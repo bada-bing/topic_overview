@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { deleteBlock, idAt, insertBlock, locate, moveBlock, ownText, replaceBlock, setId, setProperty, withOwnText } from "./edit.ts";
+import { deleteBlock, headingsAbove, placeOfDeleted, idAt, propertyOf, insertBlock, locate, moveBlock, ownText, replaceBlock, setId, setProperty, withOwnText } from "./edit.ts";
 import { StoreError } from "./store.ts";
 
 const O1 = "6a0f2c1e-0000-4000-8000-000000000001";
@@ -79,4 +79,15 @@ test("the view's block is found without lines, and its own text edited, leaving 
   assert.equal(ownText(PAGE, PLANT), "Plant in spring\nand again in autumn");
   const after = replaceBlock(PAGE, PLANT, withOwnText(PAGE, PLANT, "Plant in summer"));
   assert.match(after, new RegExp(`\\t\\t- Plant in summer\\n\\t\\t  id:: ${PLANT}\\n\\t\\t  collapsed:: true\\n\\t\\t\\t- in the north bed\\n`));
+});
+
+test("a block's property and the headings above it are found", () => {
+  assert.equal(propertyOf(PAGE, PLANT, "collapsed"), "true");
+  assert.equal(propertyOf(PAGE, PLANT, "status"), undefined);
+  assert.equal(headingsAbove(PAGE, O2), "Problem / Objectives");
+});
+
+test("where a deleted block stood is said by the block after it, or by its parent", () => {
+  assert.deepEqual(placeOfDeleted(PAGE, O1), { next: O2, parent: "b1.1" });
+  assert.deepEqual(placeOfDeleted(PAGE, PLANT), { next: undefined, parent: "b2.1" });
 });

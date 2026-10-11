@@ -3,7 +3,7 @@
 // Sets one of a block's own properties, or removes it with --nil. Its
 // content stays as it is; that is changed with replace.
 
-import { StoreError, Topics, setProperty } from "@topic-overview/core";
+import { StoreError, Topics, propertyOf, setProperty } from "@topic-overview/core";
 
 import { type Context, need } from "../context.ts";
 
@@ -18,9 +18,12 @@ export async function setPropertyCommand([key, id, name, value]: string[], conte
   const topic = need(key, USAGE);
   const named = await topics.blockName(topic, block);
   const description = context.nil ? `Remove ${property} from ${named}` : `Set ${property} on ${named}`;
+  const old = propertyOf((await topics.source(topic)).text, block, property);
+  const before = old === undefined ? `no ${property}` : `${property}:: ${old}`;
   const head = await topics.change(topic, description, (text) => setProperty(text, block, property, set), {
     id: block,
     kind: "changed",
+    before,
   });
   console.log(`${context.nil ? "removed" : "set"} ${property} at ${head}`);
 }

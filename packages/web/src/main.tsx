@@ -2,6 +2,7 @@ import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled, refresh } from "solid-js";
 
 import type { Block, DiscussionView, Mark, SourceProblem } from "@topic-overview/core";
+import { markKey } from "@topic-overview/core/mark";
 import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 
 import { AttachmentList } from "./components/AttachmentList.tsx";
@@ -205,13 +206,22 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // server last told them: with the content, or after a confirmation.
   const [marks, setMarks] = createSignal(() => view().marks ?? []);
   const marking = {
-    of: (block: string) => marks().find((mark) => mark.id === block)?.kind,
-    clear: (block: string) => {
-      fetch(`${base}/marks/${encodeURIComponent(block)}`, { method: "DELETE" })
+    // A removed block is gone from the page, so no block shows its mark.
+    of: (block: string) => marks().find((mark) => mark.kind !== "removed" && mark.id === block),
+    // A removed block is drawn as a line where it stood: before the block that
+    // took its place, or at the end of its parent's children.
+    removedBefore: (block: string) => marks().filter((mark) => mark.kind === "removed" && mark.next === block),
+    removedAtEnd: (parent: string) =>
+      marks().filter((mark) => mark.kind === "removed" && mark.next === undefined && mark.parent === parent),
+    clear: (mark: Mark) => {
+      fetch(`${base}/marks/${encodeURIComponent(markKey(mark))}`, { method: "DELETE" })
         .then((response) => readAnswer<Mark[]>(response))
         .then(setMarks, () => {});
     },
   };
+
+  // The block a mark is on, by its id; a removed one has none.
+  const blockOfMark = (mark: Mark) => (mark.id ? blocks().get(mark.id) : undefined);
 
   // What the discussion's agent is doing, told by the server. While it works,
   // blocks are not edited from the page.
@@ -364,7 +374,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
           onPointerLeave={() => setPointed(undefined)}
         >
           <aside class="sidebar">
-            <ChangeList marks={marks()} blockText={blockText} onSeen={marking.clear} />
+            <ChangeList marks={marks()} blockOf={blockOfMark} onSeen={marking.clear} />
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}

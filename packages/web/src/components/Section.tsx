@@ -21,7 +21,7 @@ export function Section(props: { block: Block; unfolded: Set<string>; onToggle: 
       </h2>
       <Show when={open()}>
         <FoldContext value={{ unfolded: () => props.unfolded, toggle: props.onToggle }}>
-          <Blocks blocks={props.block.children} />
+          <Blocks blocks={props.block.children} parent={props.block.id} />
         </FoldContext>
       </Show>
     </section>

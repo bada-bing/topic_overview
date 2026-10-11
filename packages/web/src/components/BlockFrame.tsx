@@ -8,6 +8,7 @@ import { SourcePageContext } from "../column.ts";
 import { useComments } from "../comments.ts";
 import { useEditing } from "../editing.ts";
 import { useMarks } from "../marks.ts";
+import { MarkSeen } from "./MarkSeen.tsx";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -39,20 +40,15 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
   // Opening a block to edit it means I have seen what the agent changed in
   // it, so it confirms the change as the check does.
   const startEditing = () => {
-    if (mark()) marks.clear(props.id);
+    const shown = mark();
+    if (shown) marks.clear(shown);
     setLoadError(undefined);
     editing.load(props.id).then(setDraft, (failure: unknown) => setLoadError(String(failure)));
   };
 
   return (
-    <div class={["block-frame", { marked: !!mark() }]}>
-      <Show when={mark()}>
-        {(kind) => (
-          <button type="button" class="mark-seen" title={`The agent ${kind() === "new" ? "added" : kind()} this block; confirm you saw it`} onClick={() => marks.clear(props.id)}>
-            ✓
-          </button>
-        )}
-      </Show>
+    <div class={["block-frame", { marked: !!mark() }, mark() ? `marked-${mark()!.kind}` : ""]}>
+      <Show when={mark()}>{(shown) => <MarkSeen mark={shown()} onSeen={() => marks.clear(shown())} />}</Show>
       <div class="gutter">
         <span class="gutter-buttons">
           <Show when={canEdit}>

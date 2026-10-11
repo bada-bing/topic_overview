@@ -3,7 +3,7 @@
 import type { Attachment } from "./attachments.ts";
 import type { Discussion, Resolution } from "./discussion.ts";
 import type { Page, SourceProblem } from "./page.ts";
-import type { Mark } from "./topics.ts";
+import type { Mark } from "./mark.ts";
 import type { DiscussionRef } from "./store.ts";
 
 export interface DiscussionView {

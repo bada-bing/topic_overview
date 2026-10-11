@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Block } from "@topic-overview/core";
 
-import { foldPath, innermost, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
+import { foldPath, headingKeys, innermost, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 
 function block(id: string, text: string, children: Block[] = [], kind: Block["kind"] = "block"): Block {
   return { id, kind, text, properties: {}, children };
@@ -62,4 +62,12 @@ test("a jump unfolds the way to its block, and the innermost is what is open", (
   const open = reveal(page, "a2");
   assert.deepEqual([...open].sort(), ["a", "c"]);
   assert.equal(innermost(page, open), "a");
+});
+
+test("a heading keeps its key when blocks are inserted above it, and its number does not matter", () => {
+  const before = headingKeys(page);
+  const after = headingKeys([block("x", "Metadata", [block("x1", "new")]), ...page.map((section) => ({ ...section, id: `${section.id}'` }))]);
+  assert.equal(before.get("a"), ["Context", "Assets"].join("\u0000"));
+  assert.equal([...after.values()].includes(before.get("p")!), true);
+  assert.equal(before.has("a1"), false);
 });

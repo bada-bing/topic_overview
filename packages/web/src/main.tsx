@@ -1,5 +1,5 @@
 import { render } from "@solidjs/web";
-import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
+import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled, refresh } from "solid-js";
 
 import type { Block, DiscussionView, SourceProblem } from "@topic-overview/core";
 import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
@@ -13,7 +13,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
-import { innermost, isSection, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
+import { headingKeys, innermost, isSection, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
 import { ProblemsContext } from "./problems.ts";
@@ -23,6 +23,7 @@ import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, i
 import { readAnswer } from "./http.ts";
 import { forgetPreview } from "./previews.ts";
 import { RelateContext, relatedTo } from "./relate.ts";
+import { reuse } from "./reuse.ts";
 import { frontmatter, taskHeader } from "./task.ts";
 import "./style.css";
 
@@ -41,26 +42,34 @@ async function fetchDiscussion(base: string): Promise<DiscussionView> {
 // itself, where comments are not kept.
 function DiscussionPage(props: { base: string; live: boolean }) {
   const view = createMemo(() => fetchDiscussion(props.base));
+  // The page as it is drawn: new content with every block that did not
+  // change kept as it was, so only what changed is drawn again.
+  let drawn: Block[] = [];
+  const page = createMemo(() => {
+    const next = { ...view().page, blocks: reuse(drawn, view().page.blocks) };
+    drawn = next.blocks;
+    return next;
+  });
   // The blocks before the first section, such as the title, come first; the
   // metadata section follows them, then the page's own sections.
   const firstSection = () => {
-    const index = view().page.blocks.findIndex(isSection);
-    return index === -1 ? view().page.blocks.length : index;
+    const index = page().blocks.findIndex(isSection);
+    return index === -1 ? page().blocks.length : index;
   };
-  const leading = () => view().page.blocks.slice(0, firstSection());
-  const sections = () => view().page.blocks.slice(firstSection());
-  const entries = createMemo(() => [{ id: METADATA, text: "Metadata", depth: 0 }, ...outline(view().page.blocks)]);
-  const owners = createMemo(() => new Map([[METADATA, METADATA], ...sectionOf(view().page.blocks)]));
-  const task = createMemo(() => taskHeader(view().page));
+  const leading = () => page().blocks.slice(0, firstSection());
+  const sections = () => page().blocks.slice(firstSection());
+  const entries = createMemo(() => [{ id: METADATA, text: "Metadata", depth: 0 }, ...outline(page().blocks)]);
+  const owners = createMemo(() => new Map([[METADATA, METADATA], ...sectionOf(page().blocks)]));
+  const task = createMemo(() => taskHeader(page()));
   // An attachment relates to the blocks it is about, so pointing at it
   // highlights them.
   const forward = createMemo(() => {
-    const related = relations(view().page);
+    const related = relations(page());
     for (const attachment of view().attachments) related.set(`attachment:${attachment.id}`, new Set(attachment.blocks));
     problems().forEach((problem, index) => related.set(problemKey(index), new Set([problem.block])));
     return related;
   });
-  const labelled = createMemo(() => labels(view().page));
+  const labelled = createMemo(() => labels(page()));
   // What cannot be rendered: what the server found in the source, and what
   // a block reports as it fails to render, such as a diagram that does not
   // parse. A block reports once it is opened, and once only.
@@ -70,6 +79,12 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     if (text === undefined || reported().some((known) => known.block === block && known.reason === reason)) return;
     setReported([...reported(), { block, excerpt: excerpt(text), reason }]);
   };
+  createEffect(
+    () => page(),
+    () => {
+      setReported([]);
+    },
+  );
   const problems = createMemo(() => [...(view().problems ?? []), ...reported()]);
   // The block the pointer is on, and the blocks tinted because they relate to it.
   const [pointed, setPointed] = createSignal<string | undefined>(undefined);
@@ -84,11 +99,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // A discussion on the source itself has no versions, only its branch.
   const discussionLine = () =>
     view().branch ?? `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
-  const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
-  // Which sections and headings are unfolded: the way down to the one thing
-  // open. Everything starts folded, and the outline, the headings and a jump
-  // all change it through the same functions.
-  const [unfolded, setUnfolded] = createSignal(new Set<string>());
+  const blocks = createMemo(() => new Map([...walk(page().blocks)].map((block) => [block.id, block])));
   // The metadata folds as a section of its own, ahead of the page's; its
   // content is no block, so a stand-in makes it one that folds.
   const metadataSection: Block = {
@@ -98,21 +109,34 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     properties: {},
     children: [{ id: `${METADATA}:content`, kind: "block", text: "", properties: {}, children: [] }],
   };
-  const foldTree = (): Block[] => [metadataSection, ...view().page.blocks];
+  const foldTree = (): Block[] => [metadataSection, ...page().blocks];
+  // Which sections and headings are unfolded: the way down to the one thing
+  // open. Everything starts folded, and the outline, the headings and a jump
+  // all change it through the same functions. It is kept by the headings'
+  // texts rather than by the blocks' numbers, which an edit shifts, so the
+  // page keeps its place when the source changes.
+  const [openKeys, setOpenKeys] = createSignal(new Set<string>());
+  const keys = createMemo(() => headingKeys(foldTree()));
+  const keyed = createMemo(() => new Map([...keys()].map(([id, key]) => [key, id])));
+  const unfolded = createMemo(() => new Set([...openKeys()].flatMap((key) => keyed().get(key) ?? [])));
+  const setUnfolded = (ids: Set<string>) => setOpenKeys(new Set([...ids].flatMap((id) => keys().get(id) ?? [])));
   const shown = createMemo(() => shownUnfolded(foldTree(), unfolded()));
   const toggle = (id: string) => {
-    setUnfolded(toggleFold(foldTree(), unfolded(), id));
-    if (!unfolded().has(id)) return;
+    const next = toggleFold(foldTree(), unfolded(), id);
+    setUnfolded(next);
+    if (!next.has(id)) return;
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
   // What the column beside shows, if anything: a section or subsection of
-  // this page, or another page of the knowledge base.
+  // this page, kept by its heading as what is open is, or another page of the
+  // knowledge base.
   type Beside = { section: string } | { page: string } | { attachment: string } | { asset: Asset };
   const [beside, setBeside] = createSignal<Beside | undefined>(undefined);
   const besideSection = () => {
     const shown = beside();
-    return shown && "section" in shown ? blocks().get(shown.section) : undefined;
+    const id = shown && "section" in shown ? keyed().get(shown.section) : undefined;
+    return id ? blocks().get(id) : undefined;
   };
   const besidePage = () => {
     const shown = beside();
@@ -185,7 +209,9 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     events.addEventListener("change", (event) => {
       const change = JSON.parse((event as MessageEvent).data) as Change;
       // A new version is what a hand-over asked for, so it is shown at once.
-      if (change.kind === "version") return location.reload();
+      // A change to the source is fetched and shown in place, keeping what is
+      // open; the old content stays until the new one has arrived.
+      if (change.kind === "version") return refresh(view);
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
       // An integration's state belongs in its widget, not in a notice.
@@ -207,7 +233,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // The tab shows the page's icon from its frontmatter, as an emoji drawn into
   // an SVG, and its title: the task's key and title, or the source's name.
   createEffect(
-    () => ({ fields: frontmatter(view().page), task: task(), source: view().ref.source }),
+    () => ({ fields: frontmatter(page()), task: task(), source: view().ref.source }),
     ({ fields, task: header, source }) => {
       document.title = header ? `${header.key} · ${header.title}` : source;
       const icon = fields.icon?.trim();
@@ -259,7 +285,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
               current={innermost(foldTree(), unfolded())}
               onToggle={toggle}
               beside={besideSection()?.id}
-              onBeside={(id) => setBeside({ section: id })}
+              onBeside={(id) => setBeside({ section: keys().get(id) ?? id })}
             />
             <AttachmentList
               attachments={view().attachments}
@@ -280,20 +306,16 @@ function DiscussionPage(props: { base: string; live: boolean }) {
               {(header) => <TaskHeader task={header()} discussion={discussionLine()} />}
             </Show>
             <main>
-              <For each={leading()}>{(block) => <Blocks blocks={[block]} />}</For>
+              <Blocks blocks={leading()} />
               <Metadata
                 view={view()}
                 open={shown().has(METADATA)}
                 onToggle={() => toggle(METADATA)}
               />
-              <For each={sections()}>
+              <For each={sections()} keyed={(block) => block.id}>
                 {(block) => (
-                  <Show when={isSection(block)} fallback={<Blocks blocks={[block]} />}>
-                    <Section
-                      block={block}
-                      unfolded={shown()}
-                      onToggle={toggle}
-                    />
+                  <Show when={isSection(block())} fallback={<Blocks blocks={[block()]} />}>
+                    <Section block={block()} unfolded={shown()} onToggle={toggle} />
                   </Show>
                 )}
               </For>

@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
 import { basename, dirname, extname, join } from "node:path";
 
-import { type DiscussionView, StoreError, type Topic, Topics, convertLogseq, parsePage, sourceProblems } from "@topic-overview/core";
+import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, parsePage, sourceProblems } from "@topic-overview/core";
 
 import { integrationStates } from "./integrations.ts";
 
@@ -53,7 +53,8 @@ export async function handleTopic(response: ServerResponse, key: string, verb: s
 // back to the source. What cannot be rendered is reported with the reason,
 // and the rest is rendered.
 function view(topic: Topic, text: string): DiscussionView {
-  const page = parsePage(convertLogseq(text));
+  const page = parsePage(text);
+  numberByPlace(page.blocks);
   return {
     ref: { source: topic.key, startedAt: "" },
     discussion: {

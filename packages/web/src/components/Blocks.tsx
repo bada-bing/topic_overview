@@ -8,7 +8,8 @@ import { Paragraph } from "./Paragraph.tsx";
 
 // The catalog's dispatch: each block kind is rendered by its own component,
 // and a block's children are nested under it, unless the outline has folded
-// them away.
+// them away. Blocks are kept by their id, so new content updates a row in
+// place, and a block that did not change is left as it is drawn.
 export function Blocks(props: { blocks: Block[] }) {
   const fold = useFold();
   // Only a heading folds inside a section; any other block shows what is
@@ -19,16 +20,16 @@ export function Blocks(props: { blocks: Block[] }) {
     fold.toggle && folds(block) ? { open: unfolded(block), onToggle: () => fold.toggle!(block.id) } : undefined;
   return (
     <ul class="blocks">
-      <For each={props.blocks}>
+      <For each={props.blocks} keyed={(block) => block.id}>
         {(block) => (
           <li>
-            <BlockFrame id={block.id} text={block.text}>
-              <Show when={block.kind === "heading"} fallback={<Paragraph block={block} />}>
-                <Heading block={block} fold={toggle(block)} />
+            <BlockFrame id={block().id} text={block().text}>
+              <Show when={block().kind === "heading"} fallback={<Paragraph block={block()} />}>
+                <Heading block={block()} fold={toggle(block())} />
               </Show>
             </BlockFrame>
-            <Show when={block.children.length > 0 && unfolded(block)}>
-              <Blocks blocks={block.children} />
+            <Show when={block().children.length > 0 && unfolded(block())}>
+              <Blocks blocks={block().children} />
             </Show>
           </li>
         )}

@@ -111,3 +111,21 @@ export function innermost(blocks: Block[], unfolded: Set<string>): string | unde
   }
   return deepest;
 }
+
+// What stays the same of a section or heading when the content around it
+// changes: the texts of the headings down to it, its own included. The view
+// keeps what is open by these, so an edit that renumbers the blocks leaves
+// open what was open, and a heading that is gone simply closes.
+export function headingKeys(blocks: Block[]): Map<string, string> {
+  const keys = new Map<string, string>();
+  const visit = (children: Block[], depth: number, path: string[]) => {
+    for (const block of children) {
+      const named = depth === 0 || block.kind === "heading";
+      const own = named ? [...path, block.text] : path;
+      if (named) keys.set(block.id, own.join("\u0000"));
+      visit(block.children, depth + 1, own);
+    }
+  };
+  visit(blocks, 0, []);
+  return keys;
+}

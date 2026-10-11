@@ -2,7 +2,7 @@
 
 import type { Attachment } from "./attachments.ts";
 import type { Discussion, Resolution } from "./discussion.ts";
-import type { Page } from "./page.ts";
+import type { Page, SourceProblem } from "./page.ts";
 import type { DiscussionRef } from "./store.ts";
 
 export interface DiscussionView {
@@ -11,6 +11,7 @@ export interface DiscussionView {
   page: Page;
   attachments: Attachment[];
   earlier: EarlierDiscussion[]; // the other discussions of the same source, oldest first
+  problems?: SourceProblem[]; // what the page cannot render of its source, each with the reason
 }
 
 export interface EarlierDiscussion {

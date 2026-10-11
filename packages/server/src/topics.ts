@@ -7,7 +7,7 @@ import { watch } from "node:fs";
 import type { ServerResponse } from "node:http";
 import { basename, dirname, join } from "node:path";
 
-import { type DiscussionView, type Topic, Topics, convertLogseq, parsePage } from "@topic-overview/core";
+import { type DiscussionView, type Topic, Topics, convertLogseq, parsePage, sourceProblems } from "@topic-overview/core";
 
 import { integrationStates } from "./integrations.ts";
 
@@ -36,8 +36,10 @@ export async function handleTopic(response: ServerResponse, key: string, verb: s
 
 // The view the page already knows, with the page converted in memory: the
 // blocks are numbered for the page's own addressing, and nothing is written
-// back to the source.
+// back to the source. What cannot be rendered is reported with the reason,
+// and the rest is rendered.
 function view(topic: Topic, text: string): DiscussionView {
+  const page = parsePage(convertLogseq(text));
   return {
     ref: { source: topic.key, startedAt: "" },
     discussion: {
@@ -49,9 +51,10 @@ function view(topic: Topic, text: string): DiscussionView {
       integrations: topic.integrations,
       annotations: [],
     },
-    page: parsePage(convertLogseq(text)),
+    page,
     attachments: [],
     earlier: [],
+    problems: sourceProblems(page),
   };
 }
 

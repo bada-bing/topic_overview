@@ -100,7 +100,7 @@ function BlockLink(props: { target: string; label: string; kind: "reference" | "
     return full.length > PREVIEW_LENGTH ? `${full.slice(0, PREVIEW_LENGTH)}…` : full;
   };
   return (
-    <a class={[props.kind, "has-preview"]} href={`#${props.target}`}>
+    <a class={[props.kind, "has-preview", { missing: relate.blockText(props.target) === undefined }]} href={`#${props.target}`}>
       {props.label}
       <Show when={text()}>
         <span class="preview">{text()}</span>

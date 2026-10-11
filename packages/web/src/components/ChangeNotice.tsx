@@ -1,6 +1,7 @@
 import { Show, createSignal } from "solid-js";
 
 import { readAnswer } from "../http.ts";
+import { Banner } from "./Banner.tsx";
 import { For } from "solid-js";
 
 // A change from outside, as the server tells it. A change to the
@@ -35,23 +36,18 @@ export function Notices(props: {
   onDismiss: (id: number) => void;
 }) {
   return (
-    <div class="notices">
-      <For each={props.notices}>
+    <For each={props.notices}>
         {(notice) => (
-          <div class="notice">
+          <Banner onDismiss={() => props.onDismiss(notice.id)}>
             <span>{notice.change.message}</span>
             {notice.change.kind === "linked" && notice.change.page === props.shownBeside ? (
               <button type="button" onClick={() => props.onShowAgain((notice.change as { page: string }).page)}>
                 Show it again
               </button>
             ) : null}
-            <button type="button" class="notice-dismiss" title="Dismiss" onClick={() => props.onDismiss(notice.id)}>
-              ×
-            </button>
-          </div>
+          </Banner>
         )}
-      </For>
-    </div>
+    </For>
   );
 }
 

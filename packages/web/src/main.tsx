@@ -11,6 +11,7 @@ import { type IntegrationState, IntegrationList } from "./components/Integration
 import { Metadata } from "./components/Metadata.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
+import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { isSection, outline, sectionOf } from "./outline.ts";
 import { OpenPageContext } from "./column.ts";
@@ -54,6 +55,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const forward = createMemo(() => {
     const related = relations(view().page);
     for (const attachment of view().attachments) related.set(`attachment:${attachment.id}`, new Set(attachment.blocks));
+    (view().problems ?? []).forEach((problem, index) => related.set(problemKey(index), new Set([problem.block])));
     return related;
   });
   const labelled = createMemo(() => labels(view().page));
@@ -196,7 +198,10 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
         <Show when={outsideChange()}>{(shown) => <ChangeNotice change={shown()} base={base} />}</Show>
-        <Notices notices={notices()} shownBeside={besidePage()} onShowAgain={showAgain} onDismiss={dismiss} />
+        <div class="notices" onPointerOver={onPointer} onPointerLeave={() => setPointed(undefined)}>
+          <SourceProblems problems={view().problems ?? []} />
+          <Notices notices={notices()} shownBeside={besidePage()} onShowAgain={showAgain} onDismiss={dismiss} />
+        </div>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <CommentsContext value={comments}>

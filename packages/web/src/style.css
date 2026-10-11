@@ -743,8 +743,20 @@ main [id] {
   font-size: 0.9em;
 }
 
-.notice span {
+.notice-body {
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.notice-body > span {
+  flex: 1;
+}
+
+.notice-problem .notice-body {
+  display: block;
 }
 
 .notice button {
@@ -799,6 +811,42 @@ main [id] {
 .merge-request-open { border-color: var(--done); color: var(--done); }
 .merge-request-draft { border-color: var(--muted); }
 .merge-request-closed { border-color: #cf222e; color: #cf222e; }
+
+.notice-problem {
+  border-left-color: #cf222e;
+}
+
+.notice-problem strong {
+  color: #cf222e;
+}
+
+.source-problem {
+  display: block;
+  margin: 4px 0 0;
+  padding: 2px 4px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+.source-problem:hover {
+  background: var(--tint);
+}
+
+.source-problem-excerpt {
+  color: var(--link);
+}
+
+.source-problem-reason {
+  display: block;
+  color: var(--muted);
+}
+
+.reference.missing {
+  color: var(--muted);
+  text-decoration: line-through;
+}
 
 .integration-list {
   font-size: 0.85em;

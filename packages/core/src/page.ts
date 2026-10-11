@@ -108,6 +108,28 @@ export function validatePage(page: Page): string[] {
   return problems;
 }
 
+// What a page cannot render: a reference to a block that is not on it. Each
+// names the block holding the reference, so the page can lead to it.
+export interface SourceProblem {
+  block: string;
+  excerpt: string;
+  reason: string;
+}
+
+export function sourceProblems(page: Page): SourceProblem[] {
+  const all = [...walk(page.blocks)];
+  const ids = new Set(all.map((block) => block.id));
+  const problems: SourceProblem[] = [];
+  for (const block of all) {
+    for (const target of references(block.text)) {
+      if (!ids.has(target)) {
+        problems.push({ block: block.id, excerpt: excerpt(block.text), reason: `references ((${target})), which is not on the page` });
+      }
+    }
+  }
+  return problems;
+}
+
 function excerpt(text: string): string {
   const line = text.split("\n")[0];
   return line.length > 60 ? line.slice(0, 57) + "..." : line;

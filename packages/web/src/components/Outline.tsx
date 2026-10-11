@@ -3,14 +3,15 @@ import { For } from "solid-js";
 import type { OutlineEntry } from "../outline.ts";
 import { Text } from "./Text.tsx";
 
-// The page's sections and the headings inside them. Choosing an entry opens
-// it alone, and choosing it again folds it; the button that shows when I
-// point at an entry opens it in the column beside.
+// The page's sections and the headings inside them, the one open marked.
+// Choosing an entry folds or unfolds it, as clicking its heading on the page
+// does; the button that
+// shows when I point at an entry opens it in the column beside.
 export function Outline(props: {
   entries: OutlineEntry[];
-  chosen: string | undefined;
+  current: string | undefined;
   beside: string | undefined;
-  onChoose: (id: string) => void;
+  onToggle: (id: string) => void;
   onBeside: (id: string) => void;
 }) {
   return (
@@ -21,14 +22,14 @@ export function Outline(props: {
             class={[
               "outline-entry",
               `depth-${Math.min(entry.depth, 3)}`,
-              { current: entry.id === props.chosen, beside: entry.id === props.beside },
+              { current: entry.id === props.current, beside: entry.id === props.beside },
             ]}
           >
             <a
               href={`#${entry.id}`}
               onClick={(event) => {
                 event.preventDefault();
-                props.onChoose(entry.id);
+                props.onToggle(entry.id);
               }}
             >
               <Text text={entry.text} />

@@ -11,7 +11,12 @@ import { Paragraph } from "./Paragraph.tsx";
 // them away.
 export function Blocks(props: { blocks: Block[] }) {
   const fold = useFold();
-  const unfolded = (id: string) => fold()?.has(id) ?? true;
+  // Only a heading folds inside a section; any other block shows what is
+  // under it whenever it shows itself.
+  const folds = (block: Block) => block.kind === "heading" && block.children.length > 0;
+  const unfolded = (block: Block) => !folds(block) || (fold.unfolded()?.has(block.id) ?? true);
+  const toggle = (block: Block) =>
+    fold.toggle && folds(block) ? { open: unfolded(block), onToggle: () => fold.toggle!(block.id) } : undefined;
   return (
     <ul class="blocks">
       <For each={props.blocks}>
@@ -19,10 +24,10 @@ export function Blocks(props: { blocks: Block[] }) {
           <li>
             <BlockFrame id={block.id} text={block.text}>
               <Show when={block.kind === "heading"} fallback={<Paragraph block={block} />}>
-                <Heading block={block} />
+                <Heading block={block} fold={toggle(block)} />
               </Show>
             </BlockFrame>
-            <Show when={block.children.length > 0 && unfolded(block.id)}>
+            <Show when={block.children.length > 0 && unfolded(block)}>
               <Blocks blocks={block.children} />
             </Show>
           </li>

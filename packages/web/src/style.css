@@ -943,3 +943,13 @@ main [id] {
 .beside-asset {
   padding: 8px 0;
 }
+
+.heading.foldable {
+  cursor: pointer;
+}
+
+.heading.foldable > .fold {
+  display: inline-block;
+  margin-left: -1.2em;
+  font-size: 0.8em;
+}

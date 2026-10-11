@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Block } from "@topic-overview/core";
 
-import { outline, sectionOf, unfolded } from "./outline.ts";
+import { foldPath, innermost, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 
 function block(id: string, text: string, children: Block[] = [], kind: Block["kind"] = "block"): Block {
   return { id, kind, text, properties: {}, children };
@@ -33,12 +33,33 @@ test("every block knows its section, and a block without children is none", () =
   assert.equal(owner.has("b1"), false);
 });
 
-test("choosing a heading unfolds the way down to it and everything under it", () => {
-  const solution = block("s", "Solution", [
-    heading("a", "Approach", [block("a1", "Idea", [block("a2", "Detail")])]),
-    heading("c", "Criteria", [block("c1", "AC1")]),
-  ]);
-  assert.deepEqual([...(unfolded(solution, "a") ?? [])].sort(), ["a", "a1", "a2", "s"]);
-  assert.equal(unfolded(solution, "c")?.has("a"), false);
-  assert.equal(unfolded(solution, "s"), undefined);
+const page = [
+  block("c", "Context", [
+    heading("l", "Links", [block("l1", "Jira")]),
+    heading("a", "Assets", [block("a1", "image", [block("a2", "detail")])]),
+  ]),
+  block("s", "Solution", [heading("p", "Approach", [block("p1", "Idea")])]),
+];
+
+test("the folds on the way to a block are its section and the headings around it", () => {
+  assert.deepEqual(foldPath(page, "a2"), ["c", "a"]);
+  assert.deepEqual(foldPath(page, "a"), ["c", "a"]);
+  assert.equal(foldPath(page, "missing"), undefined);
+});
+
+test("a section opens whole, a heading opens alone, and choosing it again folds everything", () => {
+  const context = toggleFold(page, new Set(), "c");
+  assert.deepEqual([...shownUnfolded(page, context)].sort(), ["a", "c", "l"]);
+  const assets = toggleFold(page, context, "a");
+  assert.deepEqual([...shownUnfolded(page, assets)].sort(), ["a", "c"]);
+  assert.deepEqual([...toggleFold(page, assets, "l")].sort(), ["c", "l"]);
+  assert.deepEqual([...toggleFold(page, assets, "a")], []);
+  assert.deepEqual([...toggleFold(page, context, "c")], []);
+  assert.deepEqual([...toggleFold(page, assets, "p")].sort(), ["p", "s"]);
+});
+
+test("a jump unfolds the way to its block, and the innermost is what is open", () => {
+  const open = reveal(page, "a2");
+  assert.deepEqual([...open].sort(), ["a", "c"]);
+  assert.equal(innermost(page, open), "a");
 });

@@ -1,9 +1,15 @@
 import { createContext, useContext } from "solid-js";
 
-// Which blocks show their children, while one heading of a section is chosen
-// in the outline. Undefined unfolds everything, as in the column beside.
-export const FoldContext = createContext<() => Set<string> | undefined>(() => undefined);
+// Which sections and headings are unfolded, and how one folds or unfolds
+// itself. Without it everything is unfolded and nothing toggles, as in the
+// column beside.
+export interface Fold {
+  unfolded: () => Set<string> | undefined;
+  toggle?: (id: string) => void;
+}
 
-export function useFold(): () => Set<string> | undefined {
+export const FoldContext = createContext<Fold>({ unfolded: () => undefined });
+
+export function useFold(): Fold {
   return useContext(FoldContext);
 }

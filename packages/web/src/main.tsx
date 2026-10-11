@@ -13,7 +13,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
-import { isSection, outline, sectionOf, unfolded } from "./outline.ts";
+import { innermost, isSection, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
 import { ProblemsContext } from "./problems.ts";
@@ -85,27 +85,27 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const discussionLine = () =>
     view().branch ?? `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
   const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
-  // Every section starts closed, and at most one is open. What is chosen is a
-  // section, or one heading inside it, which opens its section with only that
-  // heading unfolded.
-  const [chosen, setChosen] = createSignal<string | undefined>(undefined);
-  const open = () => {
-    const id = chosen();
-    return id === undefined ? undefined : owners().get(id);
+  // Which sections and headings are unfolded: the way down to the one thing
+  // open. Everything starts folded, and the outline, the headings and a jump
+  // all change it through the same functions.
+  const [unfolded, setUnfolded] = createSignal(new Set<string>());
+  // The metadata folds as a section of its own, ahead of the page's; its
+  // content is no block, so a stand-in makes it one that folds.
+  const metadataSection: Block = {
+    id: METADATA,
+    kind: "block",
+    text: "Metadata",
+    properties: {},
+    children: [{ id: `${METADATA}:content`, kind: "block", text: "", properties: {}, children: [] }],
   };
-  const narrowed = (section: Block) => {
-    const id = chosen();
-    return id === undefined || open() !== section.id ? undefined : unfolded(section, id);
-  };
-  // Choosing what is already chosen folds it back.
-  const choose = (id: string) => {
-    if (chosen() === id) return setChosen(undefined);
-    setChosen(id);
+  const foldTree = (): Block[] => [metadataSection, ...view().page.blocks];
+  const shown = createMemo(() => shownUnfolded(foldTree(), unfolded()));
+  const toggle = (id: string) => {
+    setUnfolded(toggleFold(foldTree(), unfolded(), id));
+    if (!unfolded().has(id)) return;
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
-  // A section's heading opens the whole section, and closes it once it is.
-  const toggleSection = (id: string) => setChosen(chosen() === id ? undefined : id);
   // What the column beside shows, if anything: a section or subsection of
   // this page, or another page of the knowledge base.
   type Beside = { section: string } | { page: string } | { attachment: string } | { asset: Asset };
@@ -146,8 +146,8 @@ function DiscussionPage(props: { base: string; live: boolean }) {
 
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
-  const jump = (id: string, sections: Map<string, string> = owners()) => {
-    setChosen(sections.get(id));
+  const jump = (id: string) => {
+    setUnfolded(reveal(foldTree(), id));
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
@@ -227,9 +227,9 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // the compute waits for it, the apply runs once it is there.
   createEffect(
     () => owners(),
-    (sections) => {
+    () => {
       // An effect's own flush is still running, so the jump waits for it.
-      if (location.hash) queueMicrotask(() => jump(decodeURIComponent(location.hash.slice(1)), sections));
+      if (location.hash) queueMicrotask(() => jump(decodeURIComponent(location.hash.slice(1))));
     },
   );
 
@@ -256,8 +256,8 @@ function DiscussionPage(props: { base: string; live: boolean }) {
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}
-              chosen={chosen()}
-              onChoose={choose}
+              current={innermost(foldTree(), unfolded())}
+              onToggle={toggle}
               beside={besideSection()?.id}
               onBeside={(id) => setBeside({ section: id })}
             />
@@ -283,17 +283,16 @@ function DiscussionPage(props: { base: string; live: boolean }) {
               <For each={leading()}>{(block) => <Blocks blocks={[block]} />}</For>
               <Metadata
                 view={view()}
-                open={open() === METADATA}
-                onToggle={() => toggleSection(METADATA)}
+                open={shown().has(METADATA)}
+                onToggle={() => toggle(METADATA)}
               />
               <For each={sections()}>
                 {(block) => (
                   <Show when={isSection(block)} fallback={<Blocks blocks={[block]} />}>
                     <Section
                       block={block}
-                      open={open() === block.id}
-                      unfolded={narrowed(block)}
-                      onToggle={() => toggleSection(block.id)}
+                      unfolded={shown()}
+                      onToggle={toggle}
                     />
                   </Show>
                 )}

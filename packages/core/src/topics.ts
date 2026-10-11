@@ -1,0 +1,148 @@
+// A discussion on the source itself. The source is a page of the knowledge
+// base, and a discussion of it is a branch of the knowledge base's
+// repository, `discussion/<key>`, checked out in a worktree beside the
+// knowledge base: `<worktrees>/<key>/`. The discussion's state is
+// `<worktrees>/<key>.json`, next to the worktree rather than in it, so git
+// never sees it. A topic has at most one open discussion at a time, so its
+// key names it.
+
+import { execFile } from "node:child_process";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { promisify } from "node:util";
+
+import type { Integration, Session } from "./discussion.ts";
+import { StoreError } from "./store.ts";
+
+const run = promisify(execFile);
+const KEY = /^[A-Za-z0-9][\w.-]*$/;
+
+// The knowledge base: TOPIC_OVERVIEW_KB, set in .env. A leading ~ stands for
+// the home directory.
+export function kbRoot(): string {
+  const configured = process.env.TOPIC_OVERVIEW_KB;
+  if (!configured) throw new StoreError("no knowledge base is configured");
+  return configured.startsWith("~/") ? join(homedir(), configured.slice(2)) : configured;
+}
+
+// Where the worktrees are: TOPIC_OVERVIEW_WORKTREES, set in .env, or a
+// folder `worktrees` beside the knowledge base.
+export function worktreesRoot(kb: string = kbRoot()): string {
+  const configured = process.env.TOPIC_OVERVIEW_WORKTREES;
+  if (!configured) return join(dirname(kb), "worktrees");
+  return configured.startsWith("~/") ? join(homedir(), configured.slice(2)) : configured;
+}
+
+// Where the agent that a discussion belongs to runs.
+export interface Tmux {
+  session: string;
+  pane: string;
+}
+
+export interface Topic {
+  key: string;
+  page: string; // the source, relative to the knowledge base, such as pages/<key>-<slug>.md
+  branch: string;
+  opened: string;
+  session?: Session; // the main Claude session
+  tmux?: Tmux;
+  integrations: Integration[];
+}
+
+export interface OpenTopic {
+  topic: Topic;
+  opened: boolean; // false when the topic was already open, and is returned as it is
+}
+
+export class Topics {
+  readonly kb: string;
+  readonly root: string;
+
+  constructor(kb: string = kbRoot(), root: string = worktreesRoot(kb)) {
+    this.kb = kb;
+    this.root = root;
+  }
+
+  worktree(key: string): string {
+    if (!KEY.test(key)) throw new StoreError(`${key} is not a valid key`);
+    return join(this.root, key);
+  }
+
+  private stateFile(key: string): string {
+    return `${this.worktree(key)}.json`;
+  }
+
+  // Opens a discussion of the topic: a branch of the knowledge base's `main`
+  // checked out in a worktree. A topic already open is returned as it is,
+  // since it is worked on once at a time. The knowledge base must be clean,
+  // its journals aside, since a change not committed would silently be left
+  // out of the discussion, and a page may depend on any other.
+  async open(key: string, session?: Session, tmux?: Tmux, now = new Date()): Promise<OpenTopic> {
+    const existing = await this.read(key).catch(() => undefined);
+    if (existing) return { topic: existing, opened: false };
+
+    await this.refuseUncommitted();
+    const page = await this.pageOf(key);
+    const branch = `discussion/${key}`;
+    if (await this.branchExists(branch)) {
+      throw new StoreError(`${branch} exists without an open discussion; close it or delete the branch first`);
+    }
+    await mkdir(this.root, { recursive: true });
+    await git(this.kb, "worktree", "add", "--quiet", "-b", branch, this.worktree(key), "main");
+    const topic: Topic = { key, page, branch, opened: now.toISOString(), integrations: [] };
+    if (session) topic.session = session;
+    if (tmux) topic.tmux = tmux;
+    await this.write(topic);
+    return { topic, opened: true };
+  }
+
+  async read(key: string): Promise<Topic> {
+    return JSON.parse(await readFile(this.stateFile(key), "utf8")) as Topic;
+  }
+
+  // The source as it stands on the discussion's branch.
+  async source(key: string): Promise<{ topic: Topic; text: string }> {
+    const topic = await this.read(key);
+    return { topic, text: await readFile(join(this.worktree(key), topic.page), "utf8") };
+  }
+
+  async list(): Promise<Topic[]> {
+    const entries = await readdir(this.root).catch(() => [] as string[]);
+    const keys = entries.filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -".json".length));
+    const topics = await Promise.all(keys.map((key) => this.read(key).catch(() => undefined)));
+    return topics.filter((topic): topic is Topic => topic !== undefined);
+  }
+
+  private async write(topic: Topic): Promise<void> {
+    await writeFile(this.stateFile(topic.key), `${JSON.stringify(topic, null, 2)}\n`);
+  }
+
+  // A task's page is named `<key>-<slug>.md`, and exactly one may match.
+  private async pageOf(key: string): Promise<string> {
+    const pages = await readdir(join(this.kb, "pages"));
+    const matches = pages.filter((file) => file.startsWith(`${key}-`) && file.endsWith(".md"));
+    if (matches.length === 0) throw new StoreError(`there is no page for ${key}`);
+    if (matches.length > 1) throw new StoreError(`more than one page matches ${key}: ${matches.join(", ")}`);
+    return join("pages", matches[0]);
+  }
+
+  // The journals are written all day by other tools, and a discussion never
+  // edits them, so they are left out, as the knowledge base's commit rules do.
+  private async refuseUncommitted(): Promise<void> {
+    const changes = (await git(this.kb, "status", "--porcelain", "--", ".", ":!journals")).trimEnd();
+    if (changes) throw new StoreError(`the knowledge base has changes not committed; commit them first:\n${changes}`);
+  }
+
+  private async branchExists(branch: string): Promise<boolean> {
+    return git(this.kb, "rev-parse", "--verify", "--quiet", `refs/heads/${branch}`).then(
+      () => true,
+      () => false,
+    );
+  }
+}
+
+async function git(cwd: string, ...args: string[]): Promise<string> {
+  const { stdout } = await run("git", args, { cwd });
+  return stdout;
+}

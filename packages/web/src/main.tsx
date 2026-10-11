@@ -23,17 +23,21 @@ import { RelateContext, relatedTo } from "./relate.ts";
 import { frontmatter, taskHeader } from "./task.ts";
 import "./style.css";
 
-const ROUTE = /^\/d\/([^/]+)\/([^/]+)\/?$/;
+// A discussion on a copy is `/d/<source>/<started-at>`; one on the source
+// itself, in a worktree, is `/d/<key>`.
+const ROUTE = /^\/d\/([^/]+)(?:\/([^/]+))?\/?$/;
 // Section 0, the metadata, folds and is listed like any other section, under
 // a key no block has.
 const METADATA = "metadata";
 
-async function fetchDiscussion(source: string, startedAt: string): Promise<DiscussionView> {
-  return readAnswer<DiscussionView>(await fetch(`/api/discussions/${source}/${startedAt}`));
+async function fetchDiscussion(base: string): Promise<DiscussionView> {
+  return readAnswer<DiscussionView>(await fetch(base));
 }
 
-function DiscussionPage(props: { source: string; startedAt: string }) {
-  const view = createMemo(() => fetchDiscussion(props.source, props.startedAt));
+// `base` is where the discussion is asked for; `live` says it is on the source
+// itself, where comments are not kept.
+function DiscussionPage(props: { base: string; live: boolean }) {
+  const view = createMemo(() => fetchDiscussion(props.base));
   // The blocks before the first section, such as the title, come first; the
   // metadata section follows them, then the page's own sections.
   const firstSection = () => {
@@ -89,13 +93,13 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
   // The comments, as the server last answered with them. Every change goes
   // to the server, which answers with the comments as they now are.
   const [annotations, setAnnotations] = createSignal(() => view().discussion.annotations);
-  const base = `/api/discussions/${props.source}/${props.startedAt}`;
+  const base = props.base;
   const change = (method: "POST" | "PATCH" | "DELETE", id: string | undefined, body?: unknown) =>
     changeComments(base, method, id, body).then((next) => {
       setAnnotations(next);
     });
   const comments = {
-    readOnly: () => view().discussion.closed !== null,
+    readOnly: () => props.live || view().discussion.closed !== null,
     of: (block: string) => annotations().filter((annotation) => annotation.target === block),
     add: (block: string, body: string) => change("POST", undefined, { target: block, body }),
     edit: (id: string, body: string) => change("PATCH", id, { body }),
@@ -267,8 +271,9 @@ function DiscussionPage(props: { source: string; startedAt: string }) {
 
 function App() {
   const match = ROUTE.exec(location.pathname);
-  if (!match) return <p>Open a discussion with <code>pnpm topic open &lt;source&gt; &lt;page.md&gt;</code>.</p>;
-  return <DiscussionPage source={match[1]} startedAt={match[2]} />;
+  if (!match) return <p>Open a discussion with <code>pnpm topic open &lt;key&gt;</code>.</p>;
+  if (!match[2]) return <DiscussionPage base={`/api/topics/${match[1]}`} live />;
+  return <DiscussionPage base={`/api/discussions/${match[1]}/${match[2]}`} live={false} />;
 }
 
 render(() => <App />, document.getElementById("root")!);

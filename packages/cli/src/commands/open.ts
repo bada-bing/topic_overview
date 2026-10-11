@@ -1,16 +1,28 @@
-// topic open <source> <logseq-page.md> [--session <id>]
-// Opens a discussion on a copy of the page, closing the one still open on it.
+// topic open <key> [--session <id>]
+// Opens a discussion of a task's page on a branch of the knowledge base,
+// checked out in a worktree beside it. Run by the agent in the tmux session it
+// belongs to, so asks reach it through its pane. A topic already open is
+// reported as it is.
 
-import { resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
-import { openOnLogseqPage } from "@topic-overview/core";
+import { type Tmux, Topics } from "@topic-overview/core";
 
-import { type Context, need, url } from "../context.ts";
+import { type Context, need, topicUrl } from "../context.ts";
 
-const USAGE = "topic open <source> <logseq-page.md> [--session <id>]";
+const USAGE = "topic open <key> [--session <id>]";
+const run = promisify(execFile);
 
-export async function open([source, path]: string[], context: Context): Promise<void> {
-  const file = resolve(process.env.INIT_CWD ?? process.cwd(), need(path, USAGE));
-  const ref = await openOnLogseqPage(context.store, need(source, USAGE), file, context.session);
-  console.log(`opened ${ref.source}/${ref.startedAt}\n${url(ref)}`);
+export async function open([key]: string[], context: Context): Promise<void> {
+  const { topic, opened } = await new Topics().open(need(key, USAGE), context.session, await tmux());
+  console.log(`${opened ? "opened" : "already open"} ${topic.key} on ${topic.branch}\n${topicUrl(topic.key)}`);
+}
+
+// The pane the command runs in, and its session. Outside tmux there is none.
+async function tmux(): Promise<Tmux | undefined> {
+  const pane = process.env.TMUX_PANE;
+  if (!pane) return undefined;
+  const { stdout } = await run("tmux", ["display-message", "-p", "-t", pane, "#S"]);
+  return { session: stdout.trim(), pane };
 }

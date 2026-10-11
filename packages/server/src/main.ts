@@ -10,6 +10,7 @@ import { GitlabError, GitlabUnreachable, mergeRequestState } from "./gitlab.ts";
 import { integrationStates } from "./integrations.ts";
 
 import { KbError, previewKbPage, readKbPage } from "./kb.ts";
+import { TOPIC, handleTopic } from "./topics.ts";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.TOPIC_OVERVIEW_PORT ?? 4310);
@@ -36,6 +37,8 @@ const SOURCE = /^\/api\/source\/(.+)$/;
 
 async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${HOST}`);
+  const topic = TOPIC.exec(url.pathname);
+  if (request.method === "GET" && topic) return handleTopic(response, decodeURIComponent(topic[1]), topic[2]);
   const discussion = DISCUSSION.exec(url.pathname);
   if (request.method === "GET" && discussion) {
     const ref = { source: decodeURIComponent(discussion[1]), startedAt: decodeURIComponent(discussion[2]) };

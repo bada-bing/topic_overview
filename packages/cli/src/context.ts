@@ -21,6 +21,10 @@ export function url(ref: DiscussionRef): string {
   return `${PAGE_URL}/${encodeURIComponent(ref.source)}/${encodeURIComponent(ref.startedAt)}`;
 }
 
+export function topicUrl(key: string): string {
+  return `${PAGE_URL}/${encodeURIComponent(key)}`;
+}
+
 export function need<T>(value: T | undefined, usage: string): T {
   if (value === undefined) throw new StoreError(`usage: ${usage}`);
   return value;

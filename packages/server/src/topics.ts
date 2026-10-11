@@ -4,7 +4,8 @@
 // stream that tells the open page its source changed and what its agent is
 // doing; `…/assets/<file>` a file of the knowledge base's assets/, such as an
 // image, as the branch has it; `…/blocks/<id>` a block's own text, read with
-// GET and saved with PUT from the Edit button.
+// GET and saved with PUT from the Edit button; `…/marks/<id>` deleted when I
+// confirm I saw what the agent changed in a block.
 
 import { watch } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -15,7 +16,7 @@ import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, par
 
 import { integrationStates } from "./integrations.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks)(?:\/([^/]+))?)?$/;
 
 const HEARTBEAT = 20_000;
 // Editors and git write a file in several steps; one notice follows the last.
@@ -55,6 +56,7 @@ export async function handleTopic(
     }
     return send(response, 200, { text: await store().ownText(key, file) });
   }
+  if (verb === "marks" && file && request.method === "DELETE") return send(response, 200, await store().clearMark(key, file));
   if (request.method !== "GET") return send(response, 405, { error: "method not allowed" });
   if (verb === "events") return subscribe(response, key);
   if (verb === "assets") return sendAsset(response, key, file);
@@ -88,6 +90,7 @@ function view(topic: Topic, text: string): DiscussionView {
     attachments: [],
     earlier: [],
     branch: topic.branch,
+    marks: topic.marks ?? [],
     problems: sourceProblems(page),
   };
 }

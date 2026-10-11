@@ -7,11 +7,16 @@ import { LABEL } from "@topic-overview/core/page";
 import { SourcePageContext } from "../column.ts";
 import { useComments } from "../comments.ts";
 import { useEditing } from "../editing.ts";
+import { useMarks } from "../marks.ts";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // Everything around a block's content: the gutter with its name and the
 // Edit, Comment and Copy buttons, which show when I point at the block and
 // never cover its text; the badge of its comments; and the field for a new
 // one. Editing puts the block's own text in a field in place of its content.
+// A block the agent changed is marked, with a tint and a border, until I
+// confirm I saw it with the check in its gutter, or open it to edit.
 // A block is named by its label, such as R2, when it has one, and by its id
 // otherwise.
 export function BlockFrame(props: { id: string; text: string; children: JSX.Element }) {
@@ -22,18 +27,32 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
   let content: HTMLDivElement | undefined;
   const own = () => (linkedPage ? [] : comments.of(props.id));
   const canComment = () => !linkedPage && !comments.readOnly();
-  const name = () => LABEL.exec(props.text)?.[1] ?? props.id;
+  // A Logseq id is a UUID, too long for the gutter, so it shows its start;
+  // the whole id is in the title.
+  const name = () => LABEL.exec(props.text)?.[1] ?? (UUID.test(props.id) ? props.id.slice(0, 8) : props.id);
   const editing = useEditing();
+  const marks = useMarks();
+  const mark = () => (linkedPage ? undefined : marks.of(props.id));
   const canEdit = !linkedPage && editing.available;
   const [draft, setDraft] = createSignal<string | undefined>(undefined);
   const [loadError, setLoadError] = createSignal<string | undefined>(undefined);
+  // Opening a block to edit it means I have seen what the agent changed in
+  // it, so it confirms the change as the check does.
   const startEditing = () => {
+    if (mark()) marks.clear(props.id);
     setLoadError(undefined);
     editing.load(props.id).then(setDraft, (failure: unknown) => setLoadError(String(failure)));
   };
 
   return (
-    <div class="block-frame">
+    <div class={["block-frame", { marked: !!mark() }]}>
+      <Show when={mark()}>
+        {(kind) => (
+          <button type="button" class="mark-seen" title={`The agent ${kind() === "new" ? "added" : kind()} this block; confirm you saw it`} onClick={() => marks.clear(props.id)}>
+            ✓
+          </button>
+        )}
+      </Show>
       <div class="gutter">
         <span class="gutter-buttons">
           <Show when={canEdit}>

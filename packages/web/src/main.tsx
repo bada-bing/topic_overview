@@ -1,7 +1,7 @@
 import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled, refresh } from "solid-js";
 
-import type { Block, DiscussionView, SourceProblem } from "@topic-overview/core";
+import type { Block, DiscussionView, Mark, SourceProblem } from "@topic-overview/core";
 import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 
 import { AttachmentList } from "./components/AttachmentList.tsx";
@@ -17,8 +17,10 @@ import { headingKeys, innermost, isSection, outline, reveal, sectionOf, shownUnf
 import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
 import { EditingContext } from "./editing.ts";
+import { MarksContext } from "./marks.ts";
 import { ProblemsContext } from "./problems.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
+import { ChangeList } from "./components/ChangeList.tsx";
 import { CommentList } from "./components/CommentList.tsx";
 import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
 import { readAnswer } from "./http.ts";
@@ -193,6 +195,18 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     return () => document.removeEventListener("click", onClick);
   });
 
+  // The blocks the agent changed that I have not confirmed seeing, as the
+  // server last told them: with the content, or after a confirmation.
+  const [marks, setMarks] = createSignal(() => view().marks ?? []);
+  const marking = {
+    of: (block: string) => marks().find((mark) => mark.id === block)?.kind,
+    clear: (block: string) => {
+      fetch(`${base}/marks/${encodeURIComponent(block)}`, { method: "DELETE" })
+        .then((response) => readAnswer<Mark[]>(response))
+        .then(setMarks, () => {});
+    },
+  };
+
   // What the discussion's agent is doing, told by the server. While it works,
   // blocks are not edited from the page.
   const [agent, setAgent] = createSignal<string>("idle");
@@ -291,6 +305,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         <AssetsContext value={props.live ? `${base}/assets` : undefined}>
         <ProblemsContext value={report}>
         <EditingContext value={editing}>
+        <MarksContext value={marking}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
@@ -301,6 +316,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
           onPointerLeave={() => setPointed(undefined)}
         >
           <aside class="sidebar">
+            <ChangeList marks={marks()} blockText={blockText} onSeen={marking.clear} />
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}
@@ -360,6 +376,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         </OpenAssetContext>
         </OpenPageContext>
         </RelateContext>
+        </MarksContext>
         </EditingContext>
         </ProblemsContext>
         </AssetsContext>

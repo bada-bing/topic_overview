@@ -14,6 +14,9 @@ export async function move([key, id]: string[], context: Context): Promise<void>
   const topics = new Topics();
   const topic = need(key, USAGE);
   const description = `Move ${await topics.blockName(topic, block)} ${place} ${await topics.blockName(topic, target)}`;
-  const head = await topics.change(topic, description, (text) => moveBlock(text, block, place, target));
+  const head = await topics.change(topic, description, (text) => moveBlock(text, block, place, target), {
+    id: block,
+    kind: "moved",
+  });
   console.log(`moved ${block} at ${head}`);
 }

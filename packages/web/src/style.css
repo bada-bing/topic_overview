@@ -470,6 +470,10 @@ main [id] {
 
 .gutter-id {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .gutter-buttons {
@@ -957,4 +961,60 @@ main [id] {
 .gutter-buttons button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* A block the agent changed, until I confirm I saw it. */
+.block-frame.marked {
+  position: relative;
+  outline: 1px solid var(--tint-edge);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.block-frame.marked > .gutter {
+  background: var(--tint);
+}
+
+.mark-seen {
+  position: absolute;
+  right: -28px;
+  top: 0;
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  background: var(--tint);
+  color: var(--text);
+  border: 1px solid var(--tint-edge);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+
+/* The changes the agent made sit first in the sidebar, in a box of their
+   own, since they want me. */
+.change-list {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--tint);
+  border: 1px solid var(--tint-edge);
+  border-radius: 6px;
+}
+
+.change-list .comment-list-entry:hover {
+  background: var(--background);
+}
+
+.change-list-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.change-list-entry > .comment-list-entry {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.change-list .mark-seen {
+  position: static;
 }

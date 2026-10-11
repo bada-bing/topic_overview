@@ -18,6 +18,9 @@ export async function setPropertyCommand([key, id, name, value]: string[], conte
   const topic = need(key, USAGE);
   const named = await topics.blockName(topic, block);
   const description = context.nil ? `Remove ${property} from ${named}` : `Set ${property} on ${named}`;
-  const head = await topics.change(topic, description, (text) => setProperty(text, block, property, set));
+  const head = await topics.change(topic, description, (text) => setProperty(text, block, property, set), {
+    id: block,
+    kind: "changed",
+  });
   console.log(`${context.nil ? "removed" : "set"} ${property} at ${head}`);
 }

@@ -13,6 +13,9 @@ export async function replace([key, id]: string[], _context: Context): Promise<v
   const input = await readBlock(USAGE);
   const topics = new Topics();
   const topic = need(key, USAGE);
-  const head = await topics.change(topic, `Replace ${await topics.blockName(topic, block)}`, (text) => replaceBlock(text, block, input));
+  const head = await topics.change(topic, `Replace ${await topics.blockName(topic, block)}`, (text) => replaceBlock(text, block, input), {
+    id: block,
+    kind: "changed",
+  });
   console.log(`replaced ${block} at ${head}`);
 }

@@ -18,7 +18,10 @@ export async function insert([key]: string[], context: Context): Promise<void> {
   const id = randomUUID();
   const name = input.split("\n")[0].replace(/^- /, "");
   const description = `Insert "${name.length > 40 ? `${name.slice(0, 39)}…` : name}" ${place} ${await topics.blockName(topic, target)}`;
-  const head = await topics.change(topic, description, (text) => insertBlock(text, place, target, input, id));
+  const head = await topics.change(topic, description, (text) => insertBlock(text, place, target, input, id), {
+    id,
+    kind: "new",
+  });
   await topics.recordId(topic, id);
   console.log(`inserted ${id} at ${head}`);
 }

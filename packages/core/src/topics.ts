@@ -52,6 +52,13 @@ export interface Topic {
   tmux?: Tmux;
   integrations: Integration[];
   ids?: string[]; // the ids the tool gave blocks, removed at close unless something refers to them
+  marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
+}
+
+// A block the agent changed, marked on the page until I confirm I saw it.
+export interface Mark {
+  id: string;
+  kind: "changed" | "new" | "moved";
 }
 
 export interface OpenTopic {
@@ -125,11 +132,14 @@ export class Topics {
   // Changes the source in the worktree and commits the change on the
   // discussion's branch, one commit per change. A change that throws leaves
   // the source as it was.
-  async change(key: string, description: string, apply: (text: string) => string): Promise<string> {
+  async change(key: string, description: string, apply: (text: string) => string, mark?: Mark): Promise<string> {
     const path = await this.sourcePath(key);
     const before = await readFile(path, "utf8");
     const after = apply(before);
     if (after === before) throw new StoreError("the change leaves the source as it was");
+    // The mark is written before the source, so the page finds it when the
+    // changed source makes it fetch again.
+    if (mark) await this.mark(key, mark);
     await writeFile(path, after);
     const worktree = this.worktree(key);
     await git(worktree, "add", "--", path);
@@ -184,6 +194,23 @@ export class Topics {
   // A block named for a commit message, by the start of its text.
   async blockName(key: string, id: string): Promise<string> {
     return blockName(await readFile(await this.sourcePath(key), "utf8"), id);
+  }
+
+  // Marks a block the agent changed. A block marked already keeps the first
+  // kind it was marked with, so a new block edited further stays new.
+  async mark(key: string, mark: Mark): Promise<void> {
+    const topic = await this.read(key);
+    if (topic.marks?.some((known) => known.id === mark.id)) return;
+    topic.marks = [...(topic.marks ?? []), mark];
+    await this.write(topic);
+  }
+
+  // Confirms a change was seen, clearing its mark.
+  async clearMark(key: string, id: string): Promise<Mark[]> {
+    const topic = await this.read(key);
+    topic.marks = (topic.marks ?? []).filter((known) => known.id !== id);
+    await this.write(topic);
+    return topic.marks;
   }
 
   // Records an id the tool gave a block, to be removed at close unless

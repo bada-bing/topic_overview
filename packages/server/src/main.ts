@@ -161,6 +161,12 @@ function send(response: ServerResponse, status: number, body: unknown): void {
 
 const server = createServer((request, response) => {
   handle(request, response).catch((error: unknown) => {
+    // A response already under way, such as a stream, can only be ended.
+    if (response.headersSent) {
+      console.error(error);
+      response.end();
+      return;
+    }
     if (error instanceof StoreError) return send(response, 400, { error: error.message });
     if (error instanceof KbError) return send(response, 404, { error: error.message });
     if (error instanceof GitlabError) return send(response, 404, { error: error.message });

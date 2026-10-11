@@ -116,6 +116,8 @@ function tell(watch: Watch, change: unknown): void {
 }
 
 async function subscribe(response: ServerResponse, key: string): Promise<void> {
+  // A discussion that is gone is refused before the stream begins.
+  await store().read(key);
   response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
   response.write(": connected\n\n");
   let watch = watches.get(key);
@@ -181,10 +183,20 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
       taking = false;
     }
   };
-  await askAgent();
-  void merge().catch(() => {});
-  const agentPoll = setInterval(() => void askAgent(), AGENT_INTERVAL);
-  const mainPoll = setInterval(() => void merge().catch(() => {}), MAIN_INTERVAL);
+  // A check that fails is left to the next one, unless the discussion is
+  // gone, closed or discarded: then the watch ends, and with it the pages'
+  // streams. Nothing a check runs into may stop the server.
+  const check = (run: () => Promise<void>) => () =>
+    void run().catch(async () => {
+      if (await store().read(key).then(() => true, () => false)) return;
+      watch.stop();
+      watches.delete(key);
+      for (const page of watch.pages) page.end();
+    });
+  await askAgent().catch(() => {});
+  check(merge)();
+  const agentPoll = setInterval(check(askAgent), AGENT_INTERVAL);
+  const mainPoll = setInterval(check(merge), MAIN_INTERVAL);
   watch.stop = () => {
     clearTimeout(timer);
     clearInterval(agentPoll);

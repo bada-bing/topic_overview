@@ -11,6 +11,7 @@ export interface DiscussionView {
   page: Page;
   attachments: Attachment[];
   earlier: EarlierDiscussion[]; // the other discussions of the same source, oldest first
+  branch?: string; // the branch a discussion on the source itself is on
   problems?: SourceProblem[]; // what the page cannot render of its source, each with the reason
 }
 

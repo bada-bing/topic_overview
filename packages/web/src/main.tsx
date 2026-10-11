@@ -1,7 +1,7 @@
 import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
 
-import type { DiscussionView } from "@topic-overview/core";
+import type { Block, DiscussionView } from "@topic-overview/core";
 import { labels, relations, walk } from "@topic-overview/core/page";
 
 import { AttachmentList } from "./components/AttachmentList.tsx";
@@ -13,7 +13,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
-import { isSection, outline, sectionOf } from "./outline.ts";
+import { isSection, outline, sectionOf, unfolded } from "./outline.ts";
 import { OpenPageContext } from "./column.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { CommentList } from "./components/CommentList.tsx";
@@ -69,11 +69,31 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     const id = (event.target as Element).closest?.("[data-block]")?.getAttribute("data-block") ?? undefined;
     if (id !== pointed()) setPointed(id);
   };
+  // A discussion on the source itself has no versions, only its branch.
   const discussionLine = () =>
-    `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
+    view().branch ?? `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
   const blocks = createMemo(() => new Map([...walk(view().page.blocks)].map((block) => [block.id, block])));
-  // Every section starts closed, and at most one is open.
-  const [open, setOpen] = createSignal<string | undefined>(undefined);
+  // Every section starts closed, and at most one is open. What is chosen is a
+  // section, or one heading inside it, which opens its section with only that
+  // heading unfolded.
+  const [chosen, setChosen] = createSignal<string | undefined>(undefined);
+  const open = () => {
+    const id = chosen();
+    return id === undefined ? undefined : owners().get(id);
+  };
+  const narrowed = (section: Block) => {
+    const id = chosen();
+    return id === undefined || open() !== section.id ? undefined : unfolded(section, id);
+  };
+  // Choosing what is already chosen folds it back.
+  const choose = (id: string) => {
+    if (chosen() === id) return setChosen(undefined);
+    setChosen(id);
+    flush();
+    document.getElementById(id)?.scrollIntoView({ block: "start" });
+  };
+  // A section's heading opens the whole section, and closes it once it is.
+  const toggleSection = (id: string) => setChosen(chosen() === id ? undefined : id);
   // What the column beside shows, if anything: a section or subsection of
   // this page, or another page of the knowledge base.
   type Beside = { section: string } | { page: string } | { attachment: string };
@@ -111,13 +131,16 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
   const jump = (id: string, sections: Map<string, string> = owners()) => {
-    setOpen(sections.get(id));
+    setChosen(sections.get(id));
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
 
   onSettled(() => {
+    // A link something has handled already, such as an outline entry, is
+    // left alone.
     const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
       const link = (event.target as Element).closest?.("a[href^='#']");
       if (!link) return;
       event.preventDefault();
@@ -214,7 +237,8 @@ function DiscussionPage(props: { base: string; live: boolean }) {
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}
-              open={open()}
+              chosen={chosen()}
+              onChoose={choose}
               beside={besideSection()?.id}
               onBeside={(id) => setBeside({ section: id })}
             />
@@ -241,7 +265,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
               <Metadata
                 view={view()}
                 open={open() === METADATA}
-                onToggle={() => setOpen(open() === METADATA ? undefined : METADATA)}
+                onToggle={() => toggleSection(METADATA)}
               />
               <For each={sections()}>
                 {(block) => (
@@ -249,7 +273,8 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                     <Section
                       block={block}
                       open={open() === block.id}
-                      onToggle={() => setOpen(open() === block.id ? undefined : block.id)}
+                      unfolded={narrowed(block)}
+                      onToggle={() => toggleSection(block.id)}
                     />
                   </Show>
                 )}

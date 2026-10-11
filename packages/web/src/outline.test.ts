@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Block } from "@topic-overview/core";
 
-import { outline, sectionOf } from "./outline.ts";
+import { outline, sectionOf, unfolded } from "./outline.ts";
 
 function block(id: string, text: string, children: Block[] = [], kind: Block["kind"] = "block"): Block {
   return { id, kind, text, properties: {}, children };
@@ -31,4 +31,14 @@ test("every block knows its section, and a block without children is none", () =
   assert.equal(owner.get("b8"), "b6");
   assert.equal(owner.get("b6"), "b6");
   assert.equal(owner.has("b1"), false);
+});
+
+test("choosing a heading unfolds the way down to it and everything under it", () => {
+  const solution = block("s", "Solution", [
+    heading("a", "Approach", [block("a1", "Idea", [block("a2", "Detail")])]),
+    heading("c", "Criteria", [block("c1", "AC1")]),
+  ]);
+  assert.deepEqual([...(unfolded(solution, "a") ?? [])].sort(), ["a", "a1", "a2", "s"]);
+  assert.equal(unfolded(solution, "c")?.has("a"), false);
+  assert.equal(unfolded(solution, "s"), undefined);
 });

@@ -46,3 +46,26 @@ export function sectionOf(blocks: Block[]): Map<string, string> {
   }
   return owner;
 }
+
+// The blocks of a section whose children show while one heading inside it is
+// chosen: the headings on the way down to it, and everything under it. Every
+// other block shows its own line only. Choosing the section itself narrows
+// nothing, and gives undefined.
+export function unfolded(section: Block, chosen: string): Set<string> | undefined {
+  if (chosen === section.id) return undefined;
+  const shown = new Set<string>();
+  const all = (block: Block) => {
+    shown.add(block.id);
+    block.children.forEach(all);
+  };
+  const find = (block: Block): boolean => {
+    if (block.id === chosen) {
+      all(block);
+      return true;
+    }
+    if (!block.children.some(find)) return false;
+    shown.add(block.id);
+    return true;
+  };
+  return find(section) ? shown : undefined;
+}

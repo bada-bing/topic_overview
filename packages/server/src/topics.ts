@@ -54,6 +54,7 @@ function view(topic: Topic, text: string): DiscussionView {
     page,
     attachments: [],
     earlier: [],
+    branch: topic.branch,
     problems: sourceProblems(page),
   };
 }

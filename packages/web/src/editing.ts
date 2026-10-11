@@ -5,14 +5,14 @@ import { createContext, useContext } from "solid-js";
 // time.
 export interface Editing {
   available: boolean; // only in a discussion on the source itself
-  busy: () => boolean; // the agent is working
+  blocked: () => string | undefined; // why nothing can be edited now: the agent works, or a merge stopped
   load: (block: string) => Promise<string>;
   save: (block: string, text: string) => Promise<void>;
 }
 
 export const EditingContext = createContext<Editing>({
   available: false,
-  busy: () => false,
+  blocked: () => undefined,
   load: async () => "",
   save: async () => {},
 });

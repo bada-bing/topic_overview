@@ -55,6 +55,7 @@ export interface Topic {
   marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
 }
 
+
 // A block the agent changed, marked on the page until I confirm I saw it.
 export interface Mark {
   id: string;
@@ -133,6 +134,10 @@ export class Topics {
   // discussion's branch, one commit per change. A change that throws leaves
   // the source as it was.
   async change(key: string, description: string, apply: (text: string) => string, mark?: Mark): Promise<string> {
+    const conflicted = await this.conflict(key);
+    if (conflicted.length > 0) {
+      throw new StoreError(`merging main stopped on a conflict in ${conflicted.join(", ")}; resolve it in the terminal first`);
+    }
     const path = await this.sourcePath(key);
     const before = await readFile(path, "utf8");
     const after = apply(before);
@@ -157,6 +162,41 @@ export class Topics {
     const head = await this.change(key, `Add an id to the block at line ${line}`, (text) => setId(text, line, first, id));
     await this.recordId(key, id);
     return { id, head, added: true };
+  }
+
+  // The files a merge from main stopped on, while it is unfinished; none
+  // otherwise. Nothing is written to the branch until it is resolved.
+  async conflict(key: string): Promise<string[]> {
+    const worktree = this.worktree(key);
+    const merging = await git(worktree, "rev-parse", "--quiet", "--verify", "MERGE_HEAD").then(
+      () => true,
+      () => false,
+    );
+    if (!merging) return [];
+    return (await git(worktree, "diff", "--name-only", "--diff-filter=U")).split("\n").filter(Boolean);
+  }
+
+  // Merges what is new on main into the discussion's branch, never
+  // rebasing, and tells which files it changed. A merge that conflicts
+  // stops, and is left for the terminal.
+  async mergeMain(key: string): Promise<{ files: string[] } | { conflict: string[] }> {
+    const conflicted = await this.conflict(key);
+    if (conflicted.length > 0) return { conflict: conflicted };
+    const worktree = this.worktree(key);
+    const current = await git(worktree, "merge-base", "--is-ancestor", "main", "HEAD").then(
+      () => true,
+      () => false,
+    );
+    if (current) return { files: [] };
+    const before = (await git(worktree, "rev-parse", "HEAD")).trim();
+    try {
+      await git(worktree, "merge", "--no-edit", "--quiet", "main");
+    } catch (failure) {
+      const conflicted = await this.conflict(key);
+      if (conflicted.length === 0) throw new StoreError(`merging main failed: ${(failure as Error).message}`);
+      return { conflict: conflicted };
+    }
+    return { files: (await git(worktree, "diff", "--name-only", before, "HEAD")).split("\n").filter(Boolean) };
   }
 
   // What the discussion's agent is doing, read from its tmux window, which

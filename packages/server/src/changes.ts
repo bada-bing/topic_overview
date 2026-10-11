@@ -60,7 +60,7 @@ export class Changes {
       const change: Change = { kind: "source", message: "The source of this discussion has changed since it was opened." };
       response.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
     }
-    const heartbeat = setInterval(() => response.write(": heartbeat\n\n"), HEARTBEAT);
+    const heartbeat = setInterval(() => response.write("event: heartbeat\ndata: \n\n"), HEARTBEAT);
     response.on("close", () => {
       clearInterval(heartbeat);
       this.unsubscribe(key, response);

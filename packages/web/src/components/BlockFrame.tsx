@@ -58,8 +58,8 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
           <Show when={canEdit}>
             <button
               type="button"
-              title={editing.busy() ? "The agent is working; edit once it is done" : "Edit this block"}
-              disabled={editing.busy()}
+              title={editing.blocked() ?? "Edit this block"}
+              disabled={editing.blocked() !== undefined}
               onClick={startEditing}
             >
               ✎

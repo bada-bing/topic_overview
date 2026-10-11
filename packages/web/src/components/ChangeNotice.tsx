@@ -10,9 +10,10 @@ export type Change =
   | { kind: "source"; message: string }
   | { kind: "version"; message: string }
   | { kind: "linked"; page: string; message: string }
-  | { kind: "info"; message: string }
+  | { kind: "info"; message: string; files?: string[] } // files: what an update from main changed that matters here
   | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string } }
-  | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone" }; // what the discussion's agent is doing
+  | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone" } // what the discussion's agent is doing
+  | { kind: "conflict"; files: string[] }; // the files a merge from main stopped on; none once resolved
 
 // Only a changed source blocks the page: what it shows is out of date, and
 // the way out is refreshing the discussion from its source. A new version is
@@ -40,7 +41,14 @@ export function Notices(props: {
     <For each={props.notices}>
         {(notice) => (
           <Banner onDismiss={() => props.onDismiss(notice.id)}>
-            <span>{notice.change.message}</span>
+            <span>
+              {notice.change.message}
+              {"files" in notice.change && notice.change.files ? (
+                <ul class="notice-files">
+                  <For each={notice.change.files}>{(file) => <li>{file}</li>}</For>
+                </ul>
+              ) : null}
+            </span>
             {notice.change.kind === "linked" && notice.change.page === props.shownBeside ? (
               <button type="button" onClick={() => props.onShowAgain((notice.change as { page: string }).page)}>
                 Show it again

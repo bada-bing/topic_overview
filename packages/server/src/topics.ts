@@ -7,21 +7,23 @@
 // GET and saved with PUT from the Edit button; `…/marks/<id>` deleted when I
 // confirm I saw what the agent changed in a block.
 
-import { watch } from "node:fs";
+import { watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, extname, join } from "node:path";
 
-import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, parsePage, sourceProblems } from "@topic-overview/core";
+import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, pageLinks, parsePage, sourceProblems } from "@topic-overview/core";
 
 import { integrationStates } from "./integrations.ts";
 
 export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks)(?:\/([^/]+))?)?$/;
 
-const HEARTBEAT = 20_000;
+// A heartbeat the page can see, so it can tell a stream that died quietly.
+const HEARTBEAT = 10_000;
 // Editors and git write a file in several steps; one notice follows the last.
 const SETTLE = 300;
 const AGENT_INTERVAL = 1_000;
+const MAIN_INTERVAL = 2_000;
 
 let topics: Topics | undefined;
 // The knowledge base is read from .env when the first topic is asked for.
@@ -65,7 +67,7 @@ export async function handleTopic(
     return send(response, 200, await integrationStates(topic.integrations));
   }
   const { topic, text } = await store().source(key);
-  send(response, 200, view(topic, text));
+  send(response, 200, { ...view(topic, text), conflict: await store().conflict(key) });
 }
 
 // The view the page already knows, with the page converted in memory: the
@@ -95,41 +97,100 @@ function view(topic: Topic, text: string): DiscussionView {
   };
 }
 
-// The page is told when its source changes in the worktree, and reloads.
+// What an open discussion is watched for: its source changing in the
+// worktree, its agent's state, and what is new on main. One watcher belongs
+// to the discussion, not to a page: it starts with the first page open on it
+// and stops with the last, and what it finds goes to every page open on it,
+// so no page misses what another one's check found.
+interface Watch {
+  pages: Set<ServerResponse>;
+  agent?: string;
+  conflict: string;
+  stop: () => void;
+}
+
+const watches = new Map<string, Watch>();
+
+function tell(watch: Watch, change: unknown): void {
+  for (const page of watch.pages) page.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
+}
+
 async function subscribe(response: ServerResponse, key: string): Promise<void> {
-  const topic = await store().read(key);
   response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
   response.write(": connected\n\n");
+  let watch = watches.get(key);
+  if (!watch) {
+    watch = { pages: new Set(), conflict: "", stop: () => {} };
+    watches.set(key, watch);
+    await startWatch(key, watch);
+  }
+  watch.pages.add(response);
+  // A page that joins learns what the others know already.
+  if (watch.agent) response.write(`event: change\ndata: ${JSON.stringify({ kind: "agent", state: watch.agent })}\n\n`);
+  if (watch.conflict) response.write(`event: change\ndata: ${JSON.stringify({ kind: "conflict", files: watch.conflict.split("\n") })}\n\n`);
+  const heartbeat = setInterval(() => response.write("event: heartbeat\ndata: \n\n"), HEARTBEAT);
+  const watched = watch;
+  response.on("close", () => {
+    clearInterval(heartbeat);
+    watched.pages.delete(response);
+    if (watched.pages.size > 0) return;
+    watched.stop();
+    watches.delete(key);
+  });
+}
+
+async function startWatch(key: string, watch: Watch): Promise<void> {
+  const topic = await store().read(key);
   let timer: ReturnType<typeof setTimeout> | undefined;
   // The folder is watched rather than the file, since git replaces a file it
   // checks out or merges, and a watcher on the file would end with it.
   const file = join(store().worktree(key), topic.page);
-  const watcher = watch(dirname(file), (_event, name) => {
+  const watcher = watchFiles(dirname(file), (_event, name) => {
     if (name !== basename(file)) return;
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      const change = { kind: "version", message: "The source changed." };
-      response.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
-    }, SETTLE);
+    timer = setTimeout(() => tell(watch, { kind: "version", message: "The source changed." }), SETTLE);
   });
-  // What the agent is doing, told when it changes, so the page can let me
-  // edit only while the agent is not working.
-  let agent: string | undefined;
+  // What the agent is doing, told when it changes, so the pages let me edit
+  // only while the agent is not working.
   const askAgent = async () => {
     const state = await store().agentState(key);
-    if (state === agent) return;
-    agent = state;
-    response.write(`event: change\ndata: ${JSON.stringify({ kind: "agent", state })}\n\n`);
+    if (state === watch.agent) return;
+    watch.agent = state;
+    tell(watch, { kind: "agent", state });
   };
-  void askAgent();
+  // What is new on main is merged as it lands, while the agent is not
+  // working, so a merge never lands in the middle of its turn. A merge that
+  // changed this page or a page it links to is told; a conflict is told
+  // until it is resolved in the terminal.
+  let taking = false;
+  const merge = async () => {
+    if (watch.agent === "busy" || taking) return;
+    taking = true;
+    try {
+      const result = await store().mergeMain(key);
+      const now = "conflict" in result ? result.conflict.join("\n") : "";
+      if (now !== watch.conflict) {
+        watch.conflict = now;
+        tell(watch, { kind: "conflict", files: now ? now.split("\n") : [] });
+      }
+      if ("files" in result && result.files.length > 0) {
+        const related = await relatedFiles(key, result.files);
+        if (related.length > 0) tell(watch, { kind: "info", message: "Updated from main:", files: related });
+      }
+    } finally {
+      taking = false;
+    }
+  };
+  await askAgent();
+  void merge().catch(() => {});
   const agentPoll = setInterval(() => void askAgent(), AGENT_INTERVAL);
-  const heartbeat = setInterval(() => response.write(": heartbeat\n\n"), HEARTBEAT);
-  response.on("close", () => {
+  const mainPoll = setInterval(() => void merge().catch(() => {}), MAIN_INTERVAL);
+  watch.stop = () => {
     clearTimeout(timer);
-    clearInterval(heartbeat);
     clearInterval(agentPoll);
+    clearInterval(mainPoll);
     watcher.close();
-  });
+  };
 }
 
 // A file name only, never a path, so nothing outside assets/ is reached.
@@ -138,6 +199,15 @@ async function sendAsset(response: ServerResponse, key: string, file: string | u
   const content = await readFile(join(store().worktree(key), "assets", file));
   response.writeHead(200, { "content-type": ASSET_TYPES[extname(file).toLowerCase()] ?? "application/octet-stream" });
   response.end(content);
+}
+
+// The files a merge changed that matter to this page: the page itself, and
+// the pages it links to, named as the page names them.
+async function relatedFiles(key: string, files: string[]): Promise<string[]> {
+  const { topic, text } = await store().source(key);
+  const named = new Map<string, string>([[topic.page.toLowerCase(), "this page"]]);
+  for (const link of pageLinks(parsePage(text))) named.set(`pages/${link.replaceAll("/", "%2F")}.md`.toLowerCase(), `[[${link}]]`);
+  return files.flatMap((file) => named.get(file.toLowerCase()) ?? []);
 }
 
 async function readJson<T>(request: IncomingMessage): Promise<T> {

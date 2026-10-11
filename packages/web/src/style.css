@@ -1018,3 +1018,8 @@ main [id] {
 .change-list .mark-seen {
   position: static;
 }
+
+.notice-files {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

@@ -22,6 +22,7 @@ import { ProblemsContext } from "./problems.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { ChangeList } from "./components/ChangeList.tsx";
 import { CommentList } from "./components/CommentList.tsx";
+import { ConflictBanner } from "./components/ConflictBanner.tsx";
 import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
 import { readAnswer } from "./http.ts";
 import { forgetPreview } from "./previews.ts";
@@ -36,6 +37,11 @@ const ROUTE = /^\/d\/([^/]+)(?:\/([^/]+))?\/?$/;
 // Section 0, the metadata, folds and is listed like any other section, under
 // a key no block has.
 const METADATA = "metadata";
+// How long the page waits before opening its stream of changes again.
+const RECONNECT = 2_000;
+// How long a stream may stay silent, heartbeats included, before the page
+// takes it for dead.
+const SILENCE = 25_000;
 
 async function fetchDiscussion(base: string): Promise<DiscussionView> {
   return readAnswer<DiscussionView>(await fetch(base));
@@ -210,9 +216,17 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // What the discussion's agent is doing, told by the server. While it works,
   // blocks are not edited from the page.
   const [agent, setAgent] = createSignal<string>("idle");
+  // The files a merge from main stopped on, as the page loaded or as the
+  // server told since; while there are any, nothing is edited.
+  const [conflict, setConflict] = createSignal(() => view().conflict ?? []);
   const editing = {
     available: props.live,
-    busy: () => agent() === "busy",
+    blocked: () =>
+      conflict().length > 0
+        ? "Merging main stopped on a conflict; resolve it in the terminal first"
+        : agent() === "busy"
+          ? "The agent is working; edit once it is done"
+          : undefined,
     load: async (block: string) =>
       (await readAnswer<{ text: string }>(await fetch(`${base}/blocks/${encodeURIComponent(block)}`))).text,
     save: async (block: string, text: string) => {
@@ -239,22 +253,55 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       .then((response) => readAnswer<IntegrationState[]>(response))
       .then((all) => setStates(new Map(all.map((state) => [state.id, state]))))
       .catch(() => {});
-    const events = new EventSource(`${base}/events`);
-    events.addEventListener("change", (event) => {
+    const onChange = (event: Event) => {
       const change = JSON.parse((event as MessageEvent).data) as Change;
       // A new version is what a hand-over asked for, so it is shown at once.
       // A change to the source is fetched and shown in place, keeping what is
       // open; the old content stays until the new one has arrived.
       if (change.kind === "version") return refresh(view);
       if (change.kind === "agent") return setAgent(change.state);
+      if (change.kind === "conflict") return setConflict(change.files);
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
       // An integration's state belongs in its widget, not in a notice.
       if (change.kind === "integration") return setStates(new Map([...states(), [change.state.id, change.state]]));
       noticeCount += 1;
       setNotices([...notices(), { id: noticeCount, change }]);
-    });
-    return () => events.close();
+    };
+    // The stream is opened again when it ends for good, as it does when the
+    // server restarts and the browser gets an error in between, or when it
+    // falls silent, as it does behind a proxy that keeps a dead stream open;
+    // the server's heartbeat says it is alive. The page then fetches the
+    // source, since a change may have passed meanwhile.
+    let events: EventSource | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let heard = Date.now();
+    const connect = (again: boolean) => {
+      heard = Date.now();
+      events = new EventSource(`${base}/events`);
+      events.addEventListener("change", (event) => {
+        heard = Date.now();
+        onChange(event);
+      });
+      events.addEventListener("heartbeat", () => (heard = Date.now()));
+      if (again) events.addEventListener("open", () => refresh(view), { once: true });
+      events.onerror = () => {
+        if (events?.readyState !== EventSource.CLOSED) return;
+        retry = setTimeout(() => connect(true), RECONNECT);
+      };
+    };
+    connect(false);
+    const alive = setInterval(() => {
+      if (Date.now() - heard < SILENCE) return;
+      events?.close();
+      clearTimeout(retry);
+      connect(true);
+    }, SILENCE / 5);
+    return () => {
+      clearTimeout(retry);
+      clearInterval(alive);
+      events?.close();
+    };
   });
   const dismiss = (id: number) => setNotices(notices().filter((notice) => notice.id !== id));
   // A linked page open beside is shown again as it is now: the column is
@@ -299,6 +346,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       <Loading fallback={<p>Loading…</p>}>
         <Show when={outsideChange()}>{(shown) => <ChangeNotice change={shown()} base={base} />}</Show>
         <div class="notices" onPointerOver={onPointer} onPointerLeave={() => setPointed(undefined)}>
+          <ConflictBanner files={conflict()} />
           <SourceProblems problems={problems()} />
           <Notices notices={notices()} shownBeside={besidePage()} onShowAgain={showAgain} onDismiss={dismiss} />
         </div>

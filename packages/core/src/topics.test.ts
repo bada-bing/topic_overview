@@ -116,3 +116,23 @@ test("an id is given in a commit of its own and recorded, once", async () => {
   const again = await topics.setId("KEY_1", 3, "The beds need more sun");
   assert.deepEqual([again.id, again.added], [first.id, false]);
 });
+
+test("what is new on main is merged into the branch, and the files it changed are told", async () => {
+  await topics.open("KEY_1");
+  await writeFile(join(kb, "pages", "other.md"), "- another page\n");
+  git(kb, "add", ".");
+  git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "other: Add");
+  assert.deepEqual(await topics.mergeMain("KEY_1"), { files: ["pages/other.md"] });
+  assert.deepEqual(await topics.mergeMain("KEY_1"), { files: [] });
+});
+
+test("a conflict stops the merge, and nothing is changed until it is resolved", async () => {
+  await topics.open("KEY_1");
+  await topics.change("KEY_1", "Shade", (text) => text.replace("more sun", "more shade"));
+  await writeFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), PAGE.replace("more sun", "more water"));
+  git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-am", "KEY_1: Water");
+  assert.deepEqual(await topics.mergeMain("KEY_1"), { conflict: ["pages/KEY_1-grow_vegetables.md"] });
+  await assert.rejects(topics.change("KEY_1", "More", (text) => `${text}- more\n`), /conflict/);
+  git(join(home, "worktrees", "KEY_1"), "merge", "--abort");
+  assert.deepEqual(await topics.conflict("KEY_1"), []);
+});

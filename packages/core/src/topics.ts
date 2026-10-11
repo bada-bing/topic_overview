@@ -15,7 +15,7 @@ import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 
 import type { Integration, Session } from "./discussion.ts";
-import { blockName, idAt, setId } from "./edit.ts";
+import { blockName, idAt, locate, ownText, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { StoreError } from "./store.ts";
 
 const run = promisify(execFile);
@@ -147,6 +147,38 @@ export class Topics {
     const head = await this.change(key, `Add an id to the block at line ${line}`, (text) => setId(text, line, first, id));
     await this.recordId(key, id);
     return { id, head, added: true };
+  }
+
+  // What the discussion's agent is doing, read from its tmux window, which
+  // the status bar marks: busy while it works, waiting when the turn is
+  // over. A pane that is gone, or none recorded, has no agent to wait for.
+  async agentState(key: string): Promise<"busy" | "waiting" | "idle" | "gone"> {
+    const pane = (await this.read(key)).tmux?.pane;
+    if (!pane) return "gone";
+    try {
+      const { stdout } = await run("tmux", ["display-message", "-p", "-t", pane, "#{@window_state}"]);
+      const state = stdout.trim();
+      return state === "busy" || state === "waiting" ? state : "idle";
+    } catch {
+      return "gone";
+    }
+  }
+
+  // A block's own text, as the Edit button shows it.
+  async ownText(key: string, view: string): Promise<string> {
+    return ownText(await readFile(await this.sourcePath(key), "utf8"), view);
+  }
+
+  // Saving from the Edit button: the block's own text replaced, what is under
+  // it kept. A block without an id gets one first, as set-id gives it. While
+  // the agent works, nothing is saved, so one writer works at a time.
+  async editOwnText(key: string, view: string, own: string): Promise<{ id: string; head: string }> {
+    if ((await this.agentState(key)) === "busy") throw new StoreError("the agent is working; save once it is done");
+    const found = locate(await readFile(await this.sourcePath(key), "utf8"), view);
+    const id = found.id ?? (await this.setId(key, found.line, found.first)).id;
+    const name = await this.blockName(key, id);
+    const head = await this.change(key, `Edit ${name}`, (text) => replaceBlock(text, id, withOwnText(text, id, own)));
+    return { id, head };
   }
 
   // A block named for a commit message, by the start of its text.

@@ -16,6 +16,7 @@ import { TaskHeader } from "./components/TaskHeader.tsx";
 import { headingKeys, innermost, isSection, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
+import { EditingContext } from "./editing.ts";
 import { ProblemsContext } from "./problems.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { CommentList } from "./components/CommentList.tsx";
@@ -192,6 +193,25 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     return () => document.removeEventListener("click", onClick);
   });
 
+  // What the discussion's agent is doing, told by the server. While it works,
+  // blocks are not edited from the page.
+  const [agent, setAgent] = createSignal<string>("idle");
+  const editing = {
+    available: props.live,
+    busy: () => agent() === "busy",
+    load: async (block: string) =>
+      (await readAnswer<{ text: string }>(await fetch(`${base}/blocks/${encodeURIComponent(block)}`))).text,
+    save: async (block: string, text: string) => {
+      await readAnswer(
+        await fetch(`${base}/blocks/${encodeURIComponent(block)}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text }),
+        }),
+      );
+    },
+  };
+
   // What changed outside while the page is open, told by the server. Once
   // something has, the page allows nothing but reloading.
   const [outsideChange, setOutsideChange] = createSignal<BlockingChange | undefined>(undefined);
@@ -212,6 +232,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       // A change to the source is fetched and shown in place, keeping what is
       // open; the old content stays until the new one has arrived.
       if (change.kind === "version") return refresh(view);
+      if (change.kind === "agent") return setAgent(change.state);
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
       // An integration's state belongs in its widget, not in a notice.
@@ -269,6 +290,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         </div>
         <AssetsContext value={props.live ? `${base}/assets` : undefined}>
         <ProblemsContext value={report}>
+        <EditingContext value={editing}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
@@ -338,6 +360,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         </OpenAssetContext>
         </OpenPageContext>
         </RelateContext>
+        </EditingContext>
         </ProblemsContext>
         </AssetsContext>
       </Loading>

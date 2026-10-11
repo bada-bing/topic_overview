@@ -953,3 +953,8 @@ main [id] {
   margin-left: -1.2em;
   font-size: 0.8em;
 }
+
+.gutter-buttons button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

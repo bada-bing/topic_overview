@@ -38,8 +38,8 @@ const SOURCE = /^\/api\/source\/(.+)$/;
 async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${HOST}`);
   const topic = TOPIC.exec(url.pathname);
-  if (request.method === "GET" && topic) {
-    return handleTopic(response, decodeURIComponent(topic[1]), topic[2], topic[3] && decodeURIComponent(topic[3]));
+  if (topic) {
+    return handleTopic(request, response, decodeURIComponent(topic[1]), topic[2], topic[3] && decodeURIComponent(topic[3]));
   }
   const discussion = DISCUSSION.exec(url.pathname);
   if (request.method === "GET" && discussion) {

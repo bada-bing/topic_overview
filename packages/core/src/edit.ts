@@ -6,6 +6,7 @@
 // setProperty changes one of its properties and keeps its content. These are
 // a block's own `key:: value` lines, never the page's frontmatter.
 
+import { numberByPlace } from "./logseq.ts";
 import { type Block, parsePage, sourceProblems, walk } from "./page.ts";
 import { StoreError } from "./store.ts";
 
@@ -80,6 +81,45 @@ function byLine(text: string, line: number, first: string): Span {
 export function blockName(text: string, id: string): string {
   const first = byId(spans(text).spans, id).block.text.split("\n")[0];
   return first.length > 40 ? `"${first.slice(0, 39)}…"` : `"${first}"`;
+}
+
+// The block the view knows by an id: its own id, or the number the view gives
+// a block without one by its place in the tree. The view never knows lines.
+function byView(text: string, view: string): { lines: string[]; span: Span } {
+  const { lines, spans: all } = spans(text);
+  const page = parsePage(text);
+  numberByPlace(page.blocks);
+  const index = [...walk(page.blocks)].findIndex((block) => block.id === view);
+  if (index === -1) throw new StoreError(`there is no block ${view} on the page`);
+  return { lines, span: all[index] };
+}
+
+// Where the block the view knows sits in the file, for set-id, and its id if
+// it has one.
+export function locate(text: string, view: string): { line: number; first: string; id?: string } {
+  const { lines, span } = byView(text, view);
+  return { line: span.start + 1, first: BULLET.exec(lines[span.start])![2], id: span.block.id || undefined };
+}
+
+// A block's own text, as written after its bullet: its first line and the
+// lines that continue it, without its properties and its children.
+export function ownText(text: string, view: string): string {
+  const { lines, span } = byView(text, view);
+  const continued = lines
+    .slice(span.start + 1, span.own)
+    .filter((line) => !PROPERTY.test(line))
+    .map((line) => line.replace(new RegExp(`^\\t{0,${span.depth}} {0,2}`), ""));
+  return [BULLET.exec(lines[span.start])![2], ...continued].join("\n");
+}
+
+// A block for replace, made of new own text and the block's children as they
+// are, so editing a block's text leaves what is under it alone.
+export function withOwnText(text: string, id: string, own: string): string {
+  const { lines, spans: all } = spans(text);
+  const span = byId(all, id);
+  const [first, ...rest] = own.replace(/\n+$/, "").split("\n");
+  const children = dedent(lines.slice(span.own, span.end), span.depth);
+  return [`- ${first}`, ...rest.map((line) => (line === "" ? line : `  ${line}`)), ...children].join("\n");
 }
 
 // The id of the block at the line, if it has one.

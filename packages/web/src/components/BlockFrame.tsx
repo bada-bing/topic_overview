@@ -6,10 +6,12 @@ import { LABEL } from "@topic-overview/core/page";
 
 import { SourcePageContext } from "../column.ts";
 import { useComments } from "../comments.ts";
+import { useEditing } from "../editing.ts";
 
 // Everything around a block's content: the gutter with its name and the
-// Comment and Copy buttons, which show when I point at the block and never
-// cover its text; the badge of its comments; and the field for a new one.
+// Edit, Comment and Copy buttons, which show when I point at the block and
+// never cover its text; the badge of its comments; and the field for a new
+// one. Editing puts the block's own text in a field in place of its content.
 // A block is named by its label, such as R2, when it has one, and by its id
 // otherwise.
 export function BlockFrame(props: { id: string; text: string; children: JSX.Element }) {
@@ -21,11 +23,29 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
   const own = () => (linkedPage ? [] : comments.of(props.id));
   const canComment = () => !linkedPage && !comments.readOnly();
   const name = () => LABEL.exec(props.text)?.[1] ?? props.id;
+  const editing = useEditing();
+  const canEdit = !linkedPage && editing.available;
+  const [draft, setDraft] = createSignal<string | undefined>(undefined);
+  const [loadError, setLoadError] = createSignal<string | undefined>(undefined);
+  const startEditing = () => {
+    setLoadError(undefined);
+    editing.load(props.id).then(setDraft, (failure: unknown) => setLoadError(String(failure)));
+  };
 
   return (
     <div class="block-frame">
       <div class="gutter">
         <span class="gutter-buttons">
+          <Show when={canEdit}>
+            <button
+              type="button"
+              title={editing.busy() ? "The agent is working; edit once it is done" : "Edit this block"}
+              disabled={editing.busy()}
+              onClick={startEditing}
+            >
+              ✎
+            </button>
+          </Show>
           <Show when={canComment()}>
             <button type="button" title="Comment on this block" onClick={() => setWriting(true)}>
               💬
@@ -39,9 +59,28 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
           {name()}
         </span>
       </div>
-      <div class="block-body" ref={(element) => (content = element)}>
-        {props.children}
-      </div>
+      <Show
+        when={draft()}
+        fallback={
+          <div class="block-body" ref={(element) => (content = element)}>
+            {props.children}
+            <Show when={loadError()}>
+              <span class="error">{loadError()}</span>
+            </Show>
+          </div>
+        }
+      >
+        {(text) => (
+          <TextField
+            initial={text()}
+            onSave={async (body) => {
+              await editing.save(props.id, body);
+              setDraft(undefined);
+            }}
+            onCancel={() => setDraft(undefined)}
+          />
+        )}
+      </Show>
       <Show when={own().length > 0}>
         <div class={["comment-badge", { pinned: pinned() }]}>
           <button type="button" class="badge" onClick={() => setPinned(!pinned())}>
@@ -53,7 +92,7 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
         </div>
       </Show>
       <Show when={writing()}>
-        <CommentField
+        <TextField
           onSave={async (body) => {
             await comments.add(props.id, body);
             setWriting(false);
@@ -93,7 +132,7 @@ function CommentItem(props: { annotation: Annotation; pinned: boolean }) {
           </>
         }
       >
-        <CommentField
+        <TextField
           initial={props.annotation.body}
           onSave={async (body) => {
             await comments.edit(props.annotation.id, body);
@@ -106,9 +145,9 @@ function CommentItem(props: { annotation: Annotation; pinned: boolean }) {
   );
 }
 
-// A field for writing a comment. Ctrl or Cmd with Enter saves it, Escape
-// cancels it.
-function CommentField(props: { initial?: string; onSave: (body: string) => Promise<void>; onCancel: () => void }) {
+// A field for writing a comment or a block's text. Ctrl or Cmd with Enter
+// saves it, Escape cancels it.
+function TextField(props: { initial?: string; onSave: (body: string) => Promise<void>; onCancel: () => void }) {
   const [error, setError] = createSignal<string | undefined>(undefined);
   let field: HTMLTextAreaElement | undefined;
   const save = () => {

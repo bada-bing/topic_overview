@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { deleteBlock, idAt, insertBlock, moveBlock, replaceBlock, setId, setProperty } from "./edit.ts";
+import { deleteBlock, idAt, insertBlock, locate, moveBlock, ownText, replaceBlock, setId, setProperty, withOwnText } from "./edit.ts";
 import { StoreError } from "./store.ts";
 
 const O1 = "6a0f2c1e-0000-4000-8000-000000000001";
@@ -72,4 +72,11 @@ test("a block is deleted with everything under it, unless others refer to it", (
   assert.doesNotMatch(deleteBlock(PAGE, PLANT), /north/);
   assert.throws(() => deleteBlock(PAGE, O2), /reference broken/);
   assert.throws(() => deleteBlock(PAGE, NEW), /no block has the id/);
+});
+
+test("the view's block is found without lines, and its own text edited, leaving its children", () => {
+  assert.deepEqual(locate(PAGE, "b1.1"), { line: 6, first: "### Objectives", id: undefined });
+  assert.equal(ownText(PAGE, PLANT), "Plant in spring\nand again in autumn");
+  const after = replaceBlock(PAGE, PLANT, withOwnText(PAGE, PLANT, "Plant in summer"));
+  assert.match(after, new RegExp(`\\t\\t- Plant in summer\\n\\t\\t  id:: ${PLANT}\\n\\t\\t  collapsed:: true\\n\\t\\t\\t- in the north bed\\n`));
 });

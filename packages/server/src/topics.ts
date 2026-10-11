@@ -1,17 +1,19 @@
 // The routes of a discussion on the source itself, addressed by its topic's
 // key: `/api/topics/<key>` is the view, rendered from the page as it stands in
 // the discussion's worktree; `…/integrations` their states; `…/events` the
-// stream that tells the open page its source changed.
+// stream that tells the open page its source changed; `…/assets/<file>` a
+// file of the knowledge base's assets/, such as an image, as the branch has it.
 
 import { watch } from "node:fs";
+import { readFile } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 
-import { type DiscussionView, type Topic, Topics, convertLogseq, parsePage, sourceProblems } from "@topic-overview/core";
+import { type DiscussionView, StoreError, type Topic, Topics, convertLogseq, parsePage, sourceProblems } from "@topic-overview/core";
 
 import { integrationStates } from "./integrations.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events))?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets)(?:\/([^/]+))?)?$/;
 
 const HEARTBEAT = 20_000;
 // Editors and git write a file in several steps; one notice follows the last.
@@ -24,8 +26,20 @@ function store(): Topics {
   return topics;
 }
 
-export async function handleTopic(response: ServerResponse, key: string, verb: string | undefined): Promise<void> {
+// An asset is served as its kind; anything else as plain bytes.
+const ASSET_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".pdf": "application/pdf",
+};
+
+export async function handleTopic(response: ServerResponse, key: string, verb: string | undefined, file?: string): Promise<void> {
   if (verb === "events") return subscribe(response, key);
+  if (verb === "assets") return sendAsset(response, key, file);
   if (verb === "integrations") {
     const topic = await store().read(key);
     return send(response, 200, await integrationStates(topic.integrations));
@@ -82,6 +96,14 @@ async function subscribe(response: ServerResponse, key: string): Promise<void> {
     clearInterval(heartbeat);
     watcher.close();
   });
+}
+
+// A file name only, never a path, so nothing outside assets/ is reached.
+async function sendAsset(response: ServerResponse, key: string, file: string | undefined): Promise<void> {
+  if (!file || file !== basename(file) || file.startsWith(".")) throw new StoreError("not an asset");
+  const content = await readFile(join(store().worktree(key), "assets", file));
+  response.writeHead(200, { "content-type": ASSET_TYPES[extname(file).toLowerCase()] ?? "application/octet-stream" });
+  response.end(content);
 }
 
 function send(response: ServerResponse, status: number, body: unknown): void {

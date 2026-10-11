@@ -130,7 +130,7 @@ export function sourceProblems(page: Page): SourceProblem[] {
   return problems;
 }
 
-function excerpt(text: string): string {
+export function excerpt(text: string): string {
   const line = text.split("\n")[0];
   return line.length > 60 ? line.slice(0, 57) + "..." : line;
 }

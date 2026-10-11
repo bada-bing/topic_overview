@@ -894,3 +894,52 @@ main [id] {
 .integration-aborted,
 .integration-unavailable,
 .integration-exited { color: #cf222e; }
+
+.block-image {
+  display: block;
+  max-width: 100%;
+  margin: 6px 0;
+  border-radius: 4px;
+}
+
+.image-missing {
+  color: var(--muted);
+}
+
+.asset-chip {
+  color: var(--link);
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.asset-icon {
+  margin-right: 4px;
+}
+
+/* A preview of an asset has one size, whatever the asset. */
+.asset-preview {
+  box-sizing: border-box;
+  width: 480px;
+  height: 320px;
+  overflow: auto;
+  white-space: normal;
+}
+
+.asset-preview .block-image {
+  margin: 0 auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.asset-preview svg {
+  max-width: 100%;
+  max-height: 300px;
+}
+
+.beside-asset {
+  padding: 8px 0;
+}

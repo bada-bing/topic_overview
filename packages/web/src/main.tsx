@@ -1,11 +1,11 @@
 import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
 
-import type { Block, DiscussionView } from "@topic-overview/core";
-import { labels, relations, walk } from "@topic-overview/core/page";
+import type { Block, DiscussionView, SourceProblem } from "@topic-overview/core";
+import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 
 import { AttachmentList } from "./components/AttachmentList.tsx";
-import { BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
+import { BesideAsset, BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { type IntegrationState, IntegrationList } from "./components/IntegrationList.tsx";
 import { Metadata } from "./components/Metadata.tsx";
@@ -14,7 +14,9 @@ import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { isSection, outline, sectionOf, unfolded } from "./outline.ts";
+import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
+import { ProblemsContext } from "./problems.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { CommentList } from "./components/CommentList.tsx";
 import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
@@ -55,10 +57,20 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const forward = createMemo(() => {
     const related = relations(view().page);
     for (const attachment of view().attachments) related.set(`attachment:${attachment.id}`, new Set(attachment.blocks));
-    (view().problems ?? []).forEach((problem, index) => related.set(problemKey(index), new Set([problem.block])));
+    problems().forEach((problem, index) => related.set(problemKey(index), new Set([problem.block])));
     return related;
   });
   const labelled = createMemo(() => labels(view().page));
+  // What cannot be rendered: what the server found in the source, and what
+  // a block reports as it fails to render, such as a diagram that does not
+  // parse. A block reports once it is opened, and once only.
+  const [reported, setReported] = createSignal<SourceProblem[]>([]);
+  const report = (block: string, reason: string) => {
+    const text = blocks().get(block)?.text;
+    if (text === undefined || reported().some((known) => known.block === block && known.reason === reason)) return;
+    setReported([...reported(), { block, excerpt: excerpt(text), reason }]);
+  };
+  const problems = createMemo(() => [...(view().problems ?? []), ...reported()]);
   // The block the pointer is on, and the blocks tinted because they relate to it.
   const [pointed, setPointed] = createSignal<string | undefined>(undefined);
   const tinted = createMemo(() => {
@@ -96,7 +108,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const toggleSection = (id: string) => setChosen(chosen() === id ? undefined : id);
   // What the column beside shows, if anything: a section or subsection of
   // this page, or another page of the knowledge base.
-  type Beside = { section: string } | { page: string } | { attachment: string };
+  type Beside = { section: string } | { page: string } | { attachment: string } | { asset: Asset };
   const [beside, setBeside] = createSignal<Beside | undefined>(undefined);
   const besideSection = () => {
     const shown = beside();
@@ -107,6 +119,10 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     return shown && "page" in shown ? shown.page : undefined;
   };
   const blockText = (id: string) => blocks().get(id)?.text;
+  const besideAsset = () => {
+    const shown = beside();
+    return shown && "asset" in shown ? shown.asset : undefined;
+  };
   const besideAttachment = () => {
     const shown = beside();
     return shown && "attachment" in shown ? view().attachments.find((attachment) => attachment.id === shown.attachment) : undefined;
@@ -222,11 +238,14 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       <Loading fallback={<p>Loading…</p>}>
         <Show when={outsideChange()}>{(shown) => <ChangeNotice change={shown()} base={base} />}</Show>
         <div class="notices" onPointerOver={onPointer} onPointerLeave={() => setPointed(undefined)}>
-          <SourceProblems problems={view().problems ?? []} />
+          <SourceProblems problems={problems()} />
           <Notices notices={notices()} shownBeside={besidePage()} onShowAgain={showAgain} onDismiss={dismiss} />
         </div>
+        <AssetsContext value={props.live ? `${base}/assets` : undefined}>
+        <ProblemsContext value={report}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
+        <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
         <CommentsContext value={comments}>
         <div
           class={["layout", { "with-beside": !!beside() }]}
@@ -287,13 +306,19 @@ function DiscussionPage(props: { base: string; live: boolean }) {
           <Show when={besideAttachment()} keyed>
             {(attachment) => <BesideAttachment attachment={attachment} base={base} onClose={() => setBeside(undefined)} />}
           </Show>
+          <Show when={besideAsset()} keyed>
+            {(asset) => <BesideAsset asset={asset} onClose={() => setBeside(undefined)} />}
+          </Show>
           <Show when={besidePage()} keyed>
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
           </Show>
         </div>
         </CommentsContext>
+        </OpenAssetContext>
         </OpenPageContext>
         </RelateContext>
+        </ProblemsContext>
+        </AssetsContext>
       </Loading>
     </Errored>
   );

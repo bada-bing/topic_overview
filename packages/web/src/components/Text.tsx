@@ -3,8 +3,10 @@ import { For, Show, createSignal, useContext } from "solid-js";
 import { MENTION } from "@topic-overview/core/page";
 
 import { OpenPageContext } from "../column.ts";
-import { DIAGRAM_LANGUAGES, Diagram } from "./Diagram.tsx";
 import { MERGE_REQUEST, MergeRequestLink } from "./MergeRequestLink.tsx";
+import { DIAGRAM_LANGUAGES, assetsIn } from "../asset.ts";
+import { AssetChip } from "./AssetChip.tsx";
+import { AssetView } from "./AssetView.tsx";
 import { type Inline, parseText } from "../inline.ts";
 import { type PagePreview, loadPreview } from "../previews.ts";
 import { useRelate } from "../relate.ts";
@@ -14,9 +16,11 @@ export function Text(props: { text: string }) {
   return (
     <For each={parseText(props.text)}>
       {(part) =>
-        part.kind === "codeblock" ? (
+        part.kind === "table" ? (
+          <AssetChip asset={{ kind: "table", table: part.table }} />
+        ) : part.kind === "codeblock" ? (
           DIAGRAM_LANGUAGES.has(part.language) ? (
-            <Diagram language={part.language} source={part.code} />
+            <AssetChip asset={{ kind: "diagram", language: part.language, source: part.code }} />
           ) : (
             <pre class="codeblock">
               <code>{part.code}</code>
@@ -48,6 +52,8 @@ function InlinePiece(props: { inline: Inline }) {
           {inline.text}
         </a>
       );
+    case "image":
+      return <AssetChip asset={{ kind: "image", alt: inline.alt, src: inline.src }} />;
     case "page":
       return <PageLink name={inline.name} />;
     case "reference":
@@ -99,11 +105,31 @@ function BlockLink(props: { target: string; label: string; kind: "reference" | "
     const full = relate.blockText(props.target) ?? "";
     return full.length > PREVIEW_LENGTH ? `${full.slice(0, PREVIEW_LENGTH)}…` : full;
   };
+  // A block that holds an asset is previewed as the asset, at a fixed size.
+  const asset = () => assetsIn(relate.blockText(props.target) ?? "")[0];
+  const [hovered, setHovered] = createSignal(false);
   return (
-    <a class={[props.kind, "has-preview", { missing: relate.blockText(props.target) === undefined }]} href={`#${props.target}`}>
+    <a
+      class={[props.kind, "has-preview", { missing: relate.blockText(props.target) === undefined }]}
+      href={`#${props.target}`}
+      onPointerEnter={() => setHovered(true)}
+    >
       {props.label}
-      <Show when={text()}>
-        <span class="preview">{text()}</span>
+      <Show
+        when={asset()}
+        fallback={
+          <Show when={text()}>
+            <span class="preview">{text()}</span>
+          </Show>
+        }
+      >
+        {(shown) => (
+          <Show when={hovered()}>
+            <span class="preview asset-preview">
+              <AssetView asset={shown()} />
+            </span>
+          </Show>
+        )}
       </Show>
     </a>
   );

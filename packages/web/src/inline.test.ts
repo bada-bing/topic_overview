@@ -45,3 +45,11 @@ test("a task marker is taken off the front of a block", () => {
   assert.deepEqual(splitMarker("NOW Define the Problem Statement"), { marker: "NOW", text: "Define the Problem Statement" });
   assert.deepEqual(splitMarker("NOWHERE else"), { text: "NOWHERE else" });
 });
+
+test("an image is told from a link", () => {
+  assert.deepEqual(parseInline("![plan](../assets/plan_1.png) and [docs](https://example.com)"), [
+    { kind: "image", alt: "plan", src: "../assets/plan_1.png" },
+    { kind: "text", text: " and " },
+    { kind: "link", text: "docs", href: "https://example.com" },
+  ]);
+});

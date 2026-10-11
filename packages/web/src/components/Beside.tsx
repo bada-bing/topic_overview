@@ -8,7 +8,10 @@ import { ColumnContext, SourcePageContext } from "../column.ts";
 import { readAnswer } from "../http.ts";
 import { parseTable } from "../table.ts";
 import { Blocks } from "./Blocks.tsx";
+import { type Asset, assetName } from "../asset.ts";
+import { AssetView } from "./AssetView.tsx";
 import { Diagram } from "./Diagram.tsx";
+import { TableView } from "./TableView.tsx";
 import { Text } from "./Text.tsx";
 
 // The column beside the main one, for comparing two parts of a topic. It
@@ -34,6 +37,17 @@ export function BesideSection(props: { block: Block; onClose: () => void }) {
   return (
     <Column title={props.block.text} onClose={props.onClose}>
       <Blocks blocks={props.block.children} />
+    </Column>
+  );
+}
+
+// An asset of the page, drawn in full.
+export function BesideAsset(props: { asset: Asset; onClose: () => void }) {
+  return (
+    <Column title={assetName(props.asset)} onClose={props.onClose}>
+      <div class="beside-asset">
+        <AssetView asset={props.asset} />
+      </div>
     </Column>
   );
 }
@@ -101,26 +115,7 @@ export function BesideAttachment(props: { attachment: Attachment; base: string; 
               </Match>
               <Match when={attachment.kind === "table"}>
                 <Switch fallback={<pre class="codeblock"><code>{text()}</code></pre>}>
-                  <Match when={table()}>
-                    {(shown) => (
-                      <table class="attachment-table">
-                        <thead>
-                          <tr>
-                            <For each={shown().header}>{(cell) => <th><Text text={cell} /></th>}</For>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <For each={shown().rows}>
-                            {(row) => (
-                              <tr>
-                                <For each={row}>{(cell) => <td><Text text={cell} /></td>}</For>
-                              </tr>
-                            )}
-                          </For>
-                        </tbody>
-                      </table>
-                    )}
-                  </Match>
+                  <Match when={table()}>{(shown) => <TableView table={shown()} />}</Match>
                 </Switch>
               </Match>
               <Match when={true}>

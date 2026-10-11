@@ -86,3 +86,33 @@ test("a knowledge base with changes not committed is refused, its journals aside
   await rm(join(kb, "pages", "wescale%2FWFC.md"));
   assert.equal((await topics.open("KEY_1")).opened, true);
 });
+
+test("a change is one commit on the discussion's branch, and main is untouched", async () => {
+  await topics.open("KEY_1");
+  const worktree = join(home, "worktrees", "KEY_1");
+  const before = git(worktree, "rev-parse", "--short", "HEAD").trim();
+  const head = await topics.change("KEY_1", "Replace Problem", (text) => text.replace("more sun", "more shade"));
+  assert.notEqual(head, before);
+  assert.equal(git(worktree, "log", "-1", "--format=%s").trim(), "KEY_1: Replace Problem");
+  assert.match(await readFile(join(worktree, "pages", "KEY_1-grow_vegetables.md"), "utf8"), /more shade/);
+  assert.match(await readFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), "utf8"), /more sun/);
+  assert.equal(git(worktree, "status", "--short"), "");
+});
+
+test("a change that throws leaves the source and the branch as they were", async () => {
+  await topics.open("KEY_1");
+  const head = await topics.head("KEY_1");
+  await assert.rejects(topics.change("KEY_1", "Break", () => { throw new StoreError("refused"); }), StoreError);
+  assert.equal(await topics.head("KEY_1"), head);
+});
+
+test("an id is given in a commit of its own and recorded, once", async () => {
+  await topics.open("KEY_1");
+  const worktree = join(home, "worktrees", "KEY_1");
+  const first = await topics.setId("KEY_1", 3, "The beds need more sun");
+  assert.equal(first.added, true);
+  assert.equal(git(worktree, "log", "-1", "--format=%s").trim(), "KEY_1: Add an id to the block at line 3");
+  assert.deepEqual((await topics.read("KEY_1")).ids, [first.id]);
+  const again = await topics.setId("KEY_1", 3, "The beds need more sun");
+  assert.deepEqual([again.id, again.added], [first.id, false]);
+});

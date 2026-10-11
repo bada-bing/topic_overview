@@ -12,7 +12,10 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
+import { randomUUID } from "node:crypto";
+
 import type { Integration, Session } from "./discussion.ts";
+import { blockName, idAt, setId } from "./edit.ts";
 import { StoreError } from "./store.ts";
 
 const run = promisify(execFile);
@@ -48,6 +51,7 @@ export interface Topic {
   session?: Session; // the main Claude session
   tmux?: Tmux;
   integrations: Integration[];
+  ids?: string[]; // the ids the tool gave blocks, removed at close unless something refers to them
 }
 
 export interface OpenTopic {
@@ -105,6 +109,57 @@ export class Topics {
   async source(key: string): Promise<{ topic: Topic; text: string }> {
     const topic = await this.read(key);
     return { topic, text: await readFile(join(this.worktree(key), topic.page), "utf8") };
+  }
+
+  // The commit the discussion's branch is at.
+  async head(key: string): Promise<string> {
+    return (await git(this.worktree(key), "rev-parse", "--short", "HEAD")).trim();
+  }
+
+  // The source file, as a path to read it from. It is written only through
+  // change().
+  async sourcePath(key: string): Promise<string> {
+    return join(this.worktree(key), (await this.read(key)).page);
+  }
+
+  // Changes the source in the worktree and commits the change on the
+  // discussion's branch, one commit per change. A change that throws leaves
+  // the source as it was.
+  async change(key: string, description: string, apply: (text: string) => string): Promise<string> {
+    const path = await this.sourcePath(key);
+    const before = await readFile(path, "utf8");
+    const after = apply(before);
+    if (after === before) throw new StoreError("the change leaves the source as it was");
+    await writeFile(path, after);
+    const worktree = this.worktree(key);
+    await git(worktree, "add", "--", path);
+    await git(worktree, "commit", "--quiet", "-m", `${key}: ${description}`);
+    return this.head(key);
+  }
+
+  // Gives the block at the line, which must read as the text, an id in a
+  // commit of its own, and records it to be removed at close unless
+  // something refers to it. A block that has an id keeps it.
+  async setId(key: string, line: number, first: string): Promise<{ id: string; head: string; added: boolean }> {
+    const known = idAt(await readFile(await this.sourcePath(key), "utf8"), line, first);
+    if (known) return { id: known, head: await this.head(key), added: false };
+    const id = randomUUID();
+    const head = await this.change(key, `Add an id to the block at line ${line}`, (text) => setId(text, line, first, id));
+    await this.recordId(key, id);
+    return { id, head, added: true };
+  }
+
+  // A block named for a commit message, by the start of its text.
+  async blockName(key: string, id: string): Promise<string> {
+    return blockName(await readFile(await this.sourcePath(key), "utf8"), id);
+  }
+
+  // Records an id the tool gave a block, to be removed at close unless
+  // something refers to it.
+  async recordId(key: string, id: string): Promise<void> {
+    const topic = await this.read(key);
+    topic.ids = [...(topic.ids ?? []), id];
+    await this.write(topic);
   }
 
   async list(): Promise<Topic[]> {

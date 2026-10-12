@@ -145,9 +145,15 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const unfolded = createMemo(() => new Set([...openKeys()].flatMap((key) => keyed().get(key) ?? [])));
   const setUnfolded = (ids: Set<string>) => setOpenKeys(new Set([...ids].flatMap((id) => keys().get(id) ?? [])));
   const shown = createMemo(() => shownUnfolded(foldTree(), unfolded()));
+  // The URL says what is open: the block I opened or jumped to last, or
+  // nothing once everything is folded. It is replaced rather than added to,
+  // so going back leaves the page rather than stepping through my clicks.
+  const point = (id: string | undefined) =>
+    history.replaceState(null, "", id ? `#${id}` : `${location.pathname}${location.search}`);
   const toggle = (id: string) => {
     const next = toggleFold(foldTree(), unfolded(), id);
     setUnfolded(next);
+    point(next.has(id) ? id : undefined);
     if (!next.has(id)) return;
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
@@ -196,6 +202,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // closes the others, and brings the block into view.
   const jump = (id: string) => {
     setUnfolded(reveal(foldTree(), id));
+    point(id);
     flush();
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
@@ -209,11 +216,18 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       if (!link) return;
       event.preventDefault();
       const id = decodeURIComponent(link.getAttribute("href")!.slice(1));
-      history.replaceState(null, "", `#${id}`);
       jump(id);
     };
+    // A block named in the URL by hand is jumped to, as a link to it is.
+    const onHash = () => {
+      if (location.hash) jump(decodeURIComponent(location.hash.slice(1)));
+    };
     document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
+    window.addEventListener("hashchange", onHash);
+    return () => {
+      document.removeEventListener("click", onClick);
+      window.removeEventListener("hashchange", onHash);
+    };
   });
 
   // What the discussion's agent is doing, told by the server. While it works,
@@ -406,11 +420,22 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     },
   );
 
-  // A block named in the URL is jumped to once the discussion has loaded;
-  // the compute waits for it, the apply runs once it is there.
+  // A block named in the URL, as when the page is reloaded or a link to it
+  // given from outside, is jumped to once the discussion has loaded; the
+  // compute waits for it, the apply runs once it is there. Only once: the
+  // source changing later leaves the page where I am. A block the URL names
+  // that a change took away, such as by giving it an id, is replaced in the
+  // URL by what is open.
+  let arrived = false;
   createEffect(
     () => owners(),
     () => {
+      if (arrived) {
+        const named = decodeURIComponent(location.hash.slice(1));
+        if (named && !blocks().has(named) && named !== METADATA) point(innermost(foldTree(), unfolded()));
+        return;
+      }
+      arrived = true;
       // An effect's own flush is still running, so the jump waits for it.
       if (location.hash) queueMicrotask(() => jump(decodeURIComponent(location.hash.slice(1))));
     },

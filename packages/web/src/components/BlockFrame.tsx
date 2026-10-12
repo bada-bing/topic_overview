@@ -114,7 +114,7 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
           />
         )}
       </Show>
-      <For each={asked()} keyed={(question) => question.id}>{(question) => <QuestionItem question={question()} />}</For>
+      <For each={asked()} keyed={(question) => question.id}>{(question) => <QuestionItem question={question()} text={props.text} />}</For>
       <Show when={asking()}>
         <TextField
           action="Ask"

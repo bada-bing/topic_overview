@@ -297,6 +297,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         : agent() === "gone"
           ? "No Claude session runs in the discussion's pane, so there is nobody to ask"
           : undefined,
+    working: () => agent() === "busy",
   };
 
   // The block a mark is on, by its id; a removed one has none.
@@ -466,7 +467,11 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         >
           <aside class="sidebar">
             <ChangeList marks={marks()} blockOf={blockOfMark} onSeen={marking.clear} />
-            <QuestionList questions={questions()} blockOf={(question) => blocks().get(question.block)} />
+            <QuestionList
+              questions={questions()}
+              blockOf={(question) => blocks().get(question.block)}
+              working={asking.working()}
+            />
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}

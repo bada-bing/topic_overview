@@ -12,6 +12,14 @@ export interface Questions {
   followUp: (question: Question, prompt: string) => Promise<void>; // asking further, once the last answer has come
   dismiss: (question: Question) => void;
   blocked: () => string | undefined; // why nothing can be asked now: the agent works, or is gone
+  working: () => boolean; // the agent works, so what is not answered yet is being answered
+}
+
+// Where a question stands, in words: its last answer has come, the agent is
+// working on it, or it waits for the agent.
+export function standing(question: Question, working: boolean): string {
+  if (question.exchanges.at(-1)?.answer !== undefined) return "answered";
+  return working ? "being answered" : "waiting for the answer";
 }
 
 export const QuestionsContext = createContext<Questions>({
@@ -21,6 +29,7 @@ export const QuestionsContext = createContext<Questions>({
   followUp: async () => {},
   dismiss: () => {},
   blocked: () => undefined,
+  working: () => false,
 });
 
 export function useQuestions(): Questions {

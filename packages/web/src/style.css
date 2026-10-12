@@ -1120,11 +1120,13 @@ main [id] {
   cursor: default;
 }
 
-/* A question I asked about a block, under it until I dismiss it: what I
-   asked, and the agent's answer, or that it is still awaited. */
+/* A question I asked about a block, under it until I dismiss it. Its three
+   parts read apart at a glance: what the block read when I asked, muted and
+   small, when it has changed since; what I asked, labelled You, in a tinted
+   bubble; and what the agent answered, labelled Agent, as plain text. */
 .question {
   margin: 4px 0 8px;
-  padding: 6px 10px;
+  padding: 6px 10px 8px;
   border-left: 3px solid var(--now);
   background: var(--code-background);
   border-radius: 4px;
@@ -1135,16 +1137,20 @@ main [id] {
   border-left-color: var(--link);
 }
 
-.question-head {
+.question-top {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.question-prompt {
-  flex: 1;
+.question-state-label,
+.question-role,
+.question-asked-label {
+  font-size: 0.72rem;
   font-weight: 600;
-  white-space: pre-wrap;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .question-dismiss {
@@ -1161,25 +1167,59 @@ main [id] {
   cursor: not-allowed;
 }
 
-.question-waiting {
+.question-asked-about {
+  margin: 6px 0 8px;
+  padding: 4px 0 4px 10px;
+  border-left: 2px dashed var(--rule);
   color: var(--muted);
-  font-style: italic;
-  margin-top: 4px;
+  font-size: 0.85em;
 }
 
-.question-answer {
-  margin-top: 4px;
-  white-space: pre-wrap;
+.question-asked-label {
+  display: block;
+  margin-bottom: 2px;
 }
 
 .question-exchange + .question-exchange {
-  margin-top: 8px;
-  padding-top: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--rule);
 }
 
-.question-further {
+.question-turn {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
   margin-top: 6px;
+}
+
+.question-role {
+  padding-top: 3px;
+}
+
+.question-turn.mine .question-prompt {
+  padding: 4px 8px;
+  background: var(--now-tint);
+  border-radius: 6px;
+  white-space: pre-wrap;
+}
+
+.question-turn.agent .question-role {
+  color: var(--link);
+}
+
+.question-waiting {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.question-answer {
+  white-space: pre-wrap;
+}
+
+.question-further {
+  margin: 8px 0 0 calc(4.5em + 8px);
   font: inherit;
   font-size: 0.85rem;
   background: none;
@@ -1193,16 +1233,6 @@ main [id] {
 .question-further:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-/* The discussion's line opens the agent's window in the terminal. */
-button.task-discussion {
-  font: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline dotted;
 }
 
 /* The questions I asked sit below the changes, in a box of their own, each
@@ -1242,4 +1272,14 @@ button.task-discussion {
   cursor: pointer;
   color: var(--link);
   text-align: left;
+}
+
+/* The discussion's line opens the agent's window in the terminal. */
+button.task-discussion {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
 }

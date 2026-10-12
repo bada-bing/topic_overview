@@ -473,12 +473,18 @@ function DiscussionPage(props: { base: string; live: boolean }) {
           onPointerLeave={() => setPointed(undefined)}
         >
           <aside class="sidebar">
-            <ChangeList marks={marks()} blockOf={blockOfMark} onSeen={marking.clear} />
-            <QuestionList
-              questions={questions()}
-              blockOf={(question) => blocks().get(question.block)}
-              working={asking.working()}
-            />
+            {/* What the agent did that waits for me, changes to confirm and
+                answers to read, in one box; it shows only while there is any. */}
+            <Show when={marks().length + questions().length > 0}>
+              <div class="agent-box">
+                <ChangeList marks={marks()} blockOf={blockOfMark} onSeen={marking.clear} />
+                <QuestionList
+                  questions={questions()}
+                  blockOf={(question) => blocks().get(question.block)}
+                  working={asking.working()}
+                />
+              </div>
+            </Show>
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}

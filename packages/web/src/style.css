@@ -967,6 +967,7 @@ main [id] {
    happened: green changed, blue added, amber moved, red removed, which is
    drawn as a line where the block stood. */
 :root {
+  --question: #8250df;
   --mark-changed: #1a7f37;
   --mark-new: #0969da;
   --mark-moved: #bf8700;
@@ -975,6 +976,7 @@ main [id] {
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --question: #a371f7;
     --mark-changed: #3fb950;
     --mark-new: #4493f8;
     --mark-moved: #d29922;
@@ -1065,14 +1067,27 @@ main [id] {
   border-left: 3px solid var(--mark-colour);
 }
 
-/* The changes the agent made sit first in the sidebar, in a box of their
-   own, since they want me. */
-.change-list {
+/* What the agent did that waits for me sits first in the sidebar, in one
+   box: the changes it made, then the questions it answered or is answering,
+   each group with its count. */
+.agent-box {
   margin: 0 0 12px;
   padding: 8px 10px;
   background: var(--tint);
   border: 1px solid var(--tint-edge);
   border-radius: 6px;
+}
+
+.agent-box .comment-list {
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
+}
+
+.agent-box .comment-list + .comment-list {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--tint-edge);
 }
 
 .change-list .comment-list-entry:hover {
@@ -1127,14 +1142,14 @@ main [id] {
 .question {
   margin: 4px 0 8px;
   padding: 6px 10px 8px;
-  border-left: 3px solid var(--now);
+  border-left: 3px dashed var(--question);
   background: var(--code-background);
   border-radius: 4px;
   font-size: 0.9rem;
 }
 
 .question.answered {
-  border-left-color: var(--link);
+  border-left-style: solid;
 }
 
 .question-top {
@@ -1206,7 +1221,7 @@ main [id] {
 }
 
 .question-turn.agent .question-role {
-  color: var(--link);
+  color: var(--question);
 }
 
 .question-waiting {
@@ -1235,32 +1250,16 @@ main [id] {
   cursor: not-allowed;
 }
 
-/* The questions I asked sit below the changes, in a box of their own, each
-   edged by its state: amber while an answer is awaited, blue once it came. */
-.question-list {
-  margin: 0 0 12px;
-  padding: 8px 10px;
-  background: var(--code-background);
-  border: 1px solid var(--rule);
-  border-radius: 6px;
+/* The questions I asked sit below the changes and are listed as they are,
+   in violet, so a question is never taken for a change: dashed while an
+   answer is awaited, solid once it came. */
+.question-open,
+.question-answered {
+  --mark-colour: var(--question);
 }
 
-.question-list .question-entry {
-  border-left: 3px solid var(--now);
-  margin-bottom: 4px;
-}
-
-.question-list .question-entry.answered {
-  border-left-color: var(--link);
-}
-
-.question-list .question-entry:hover {
-  background: var(--background);
-}
-
-.question-state {
-  font-size: 0.8em;
-  color: var(--muted);
+.change-list .comment-list-entry.question-open {
+  border-left-style: dashed;
 }
 
 /* A worktree or a Claude session in the metadata brings its tmux window up. */

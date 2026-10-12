@@ -129,3 +129,34 @@ export function headingKeys(blocks: Block[]): Map<string, string> {
   visit(blocks, 0, []);
   return keys;
 }
+
+// A section or heading as the URL names it: its block's id when it has one,
+// since that stays put, and otherwise the path of headings down to it, each
+// written plainly, such as `problem/use-cases`. The view's numbers, which an
+// edit above shifts, never name a place in the URL. Two headings on the same
+// path are named alike, and the URL leads to the first.
+export function placeName(blocks: Block[], id: string): string {
+  if (UUID.test(id)) return id;
+  const key = headingKeys(blocks).get(id);
+  return key === undefined ? id : key.split("\u0000").map(plain).join("/");
+}
+
+// The block a name from the URL leads to: a block with that id, or the first
+// heading on that path. A name that leads nowhere leads nowhere.
+export function namedPlace(blocks: Block[], name: string): string | undefined {
+  const known = (children: Block[]): boolean => children.some((block) => block.id === name || known(block.children));
+  if (known(blocks)) return name;
+  for (const [id] of headingKeys(blocks)) if (placeName(blocks, id) === name) return id;
+  return undefined;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// A heading's text as a part of a URL: lowercase letters and digits, words
+// joined by hyphens, markers such as an emoji dropped.
+function plain(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+}

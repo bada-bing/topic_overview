@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Block } from "@topic-overview/core";
 
-import { foldPath, headingKeys, innermost, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
+import { foldPath, headingKeys, innermost, namedPlace, outline, placeName, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 
 function block(id: string, text: string, children: Block[] = [], kind: Block["kind"] = "block"): Block {
   return { id, kind, text, properties: {}, children };
@@ -70,4 +70,16 @@ test("a heading keeps its key when blocks are inserted above it, and its number 
   assert.equal(before.get("a"), ["Context", "Assets"].join("\u0000"));
   assert.equal([...after.values()].includes(before.get("p")!), true);
   assert.equal(before.has("a1"), false);
+});
+
+test("the URL names a heading by its id when it has one, and by its path otherwise", () => {
+  const id = "0f3fe282-c1a3-434c-833a-9cfd9ae5a210";
+  const tree = [block("b1", "Problem", [heading("b1.1", "🌗 Use Cases!", [block("b1.1.1", "U1")]), heading(id, "Objectives", [block("b1.2.1", "O1")])])];
+  assert.equal(placeName(tree, "b1"), "problem");
+  assert.equal(placeName(tree, "b1.1"), "problem/use-cases");
+  assert.equal(placeName(tree, id), id);
+  assert.equal(namedPlace(tree, "problem/use-cases"), "b1.1");
+  assert.equal(namedPlace(tree, id), id);
+  assert.equal(namedPlace(tree, "b1.1.1"), "b1.1.1");
+  assert.equal(namedPlace(tree, "problem/gone"), undefined);
 });

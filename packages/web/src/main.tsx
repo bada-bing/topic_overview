@@ -15,7 +15,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
-import { headingKeys, innermost, isSection, outline, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
+import { headingKeys, innermost, isSection, namedPlace, outline, placeName, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
 import { EditingContext } from "./editing.ts";
@@ -145,11 +145,14 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const unfolded = createMemo(() => new Set([...openKeys()].flatMap((key) => keyed().get(key) ?? [])));
   const setUnfolded = (ids: Set<string>) => setOpenKeys(new Set([...ids].flatMap((id) => keys().get(id) ?? [])));
   const shown = createMemo(() => shownUnfolded(foldTree(), unfolded()));
-  // The URL says what is open: the block I opened or jumped to last, or
-  // nothing once everything is folded. It is replaced rather than added to,
-  // so going back leaves the page rather than stepping through my clicks.
+  // The URL says what is open: the block I opened or jumped to last, by its
+  // id or its heading path, or nothing once everything is folded. It is
+  // replaced rather than added to, so going back leaves the page rather than
+  // stepping through my clicks.
   const point = (id: string | undefined) =>
-    history.replaceState(null, "", id ? `#${id}` : `${location.pathname}${location.search}`);
+    history.replaceState(null, "", id ? `#${placeName(foldTree(), id)}` : `${location.pathname}${location.search}`);
+  // The block the URL names, if it names one on the page.
+  const named = () => (location.hash ? namedPlace(foldTree(), decodeURIComponent(location.hash.slice(1))) : undefined);
   const toggle = (id: string) => {
     const next = toggleFold(foldTree(), unfolded(), id);
     setUnfolded(next);
@@ -220,7 +223,8 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     };
     // A block named in the URL by hand is jumped to, as a link to it is.
     const onHash = () => {
-      if (location.hash) jump(decodeURIComponent(location.hash.slice(1)));
+      const id = named();
+      if (id) jump(id);
     };
     document.addEventListener("click", onClick);
     window.addEventListener("hashchange", onHash);
@@ -425,20 +429,23 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // given from outside, is jumped to once the discussion has loaded; the
   // compute waits for it, the apply runs once it is there. Only once: the
   // source changing later leaves the page where I am. A block the URL names
-  // that a change took away, such as by giving it an id, is replaced in the
-  // URL by what is open.
+  // that a change took away is replaced in the URL by what is open, and one
+  // the change renamed, such as a heading given an id, by its new name.
   let arrived = false;
   createEffect(
     () => owners(),
     () => {
       if (arrived) {
-        const named = decodeURIComponent(location.hash.slice(1));
-        if (named && !blocks().has(named) && named !== METADATA) point(innermost(foldTree(), unfolded()));
+        if (!location.hash) return;
+        const id = named();
+        if (!id) point(innermost(foldTree(), unfolded()));
+        else if (`#${placeName(foldTree(), id)}` !== location.hash) point(id);
         return;
       }
       arrived = true;
       // An effect's own flush is still running, so the jump waits for it.
-      if (location.hash) queueMicrotask(() => jump(decodeURIComponent(location.hash.slice(1))));
+      const id = named();
+      if (id) queueMicrotask(() => jump(id));
     },
   );
 

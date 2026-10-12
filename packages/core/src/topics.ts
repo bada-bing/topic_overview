@@ -18,6 +18,7 @@ import { randomUUID } from "node:crypto";
 import type { Integration, Session } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
+import type { Question } from "./question.ts";
 import { StoreError } from "./store.ts";
 
 const run = promisify(execFile);
@@ -59,6 +60,7 @@ export interface Topic {
   integrations: Integration[];
   ids?: string[]; // the ids the tool gave blocks, removed at close unless something refers to them
   marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
+  questions?: Question[]; // what I asked the agent about blocks, until I dismiss it
   closed?: string; // the commit on main the discussion closed into, while what is left of it is removed
 }
 
@@ -275,6 +277,90 @@ export class Topics {
     return topic.marks;
   }
 
+  // Asks the discussion's agent about a block: the question is kept, and the
+  // prompt typed into the agent's pane, naming the block, what it reads and
+  // how to answer. A block without an id is given one first, as the Edit
+  // button gives it, so the question stays with its block wherever it moves.
+  // While the agent works, nothing is asked, so one writer works at a time.
+  async ask(key: string, view: string, prompt: string, now = new Date()): Promise<Question> {
+    await this.refuseAsking(key, prompt);
+    const found = locate(await readFile(await this.sourcePath(key), "utf8"), view);
+    const block = found.id ?? (await this.setId(key, found.line, found.first)).id;
+    const question: Question = {
+      id: randomUUID().slice(0, 8),
+      block,
+      text: ownText(await readFile(await this.sourcePath(key), "utf8"), block),
+      commit: await this.head(key),
+      exchanges: [{ prompt: prompt.trim(), asked: now.toISOString() }],
+    };
+    await this.keep(key, question);
+    await this.tellAgent(key, question, [
+      `Question ${question.id} in the discussion of ${key}, about the block with id ${block}`,
+      `of ${await this.sourcePath(key)}, which reads "${clip(question.text)}": ${oneLine(prompt.trim())}`,
+    ]);
+    return question;
+  }
+
+  // Asks further in a question's exchange, once its last answer has come.
+  async followUp(key: string, id: string, prompt: string, now = new Date()): Promise<Question> {
+    await this.refuseAsking(key, prompt);
+    const question = (await this.read(key)).questions?.find((known) => known.id === id);
+    if (!question) throw new StoreError(`there is no question ${id} in the discussion of ${key}`);
+    if (question.exchanges.at(-1)?.answer === undefined) throw new StoreError("the question is not answered yet; ask further once it is");
+    const asked = { ...question, exchanges: [...question.exchanges, { prompt: prompt.trim(), asked: now.toISOString() }] };
+    await this.keep(key, asked);
+    await this.tellAgent(key, asked, [
+      `Follow-up to question ${id} in the discussion of ${key}, about the block with id ${question.block}:`,
+      oneLine(prompt.trim()),
+    ]);
+    return asked;
+  }
+
+  // The agent's answer to the last thing asked in a question, shown beside
+  // its block.
+  async answer(key: string, id: string, answer: string, now = new Date()): Promise<Question> {
+    if (answer.trim() === "") throw new StoreError("an answer needs text");
+    const topic = await this.read(key);
+    const question = (topic.questions ?? []).find((known) => known.id === id);
+    if (!question) throw new StoreError(`there is no question ${id} in the discussion of ${key}`);
+    const last = question.exchanges.at(-1)!;
+    if (last.answer !== undefined) throw new StoreError(`question ${id} is answered already; nothing new was asked`);
+    last.answer = answer.trim();
+    last.answered = now.toISOString();
+    await this.write(topic);
+    return question;
+  }
+
+  private async refuseAsking(key: string, prompt: string): Promise<void> {
+    if (prompt.trim() === "") throw new StoreError("a question needs text");
+    const state = await this.agentState(key);
+    if (state === "busy") throw new StoreError("the agent is working; ask once it is done");
+    if (state === "gone") throw new StoreError("no Claude session runs in the discussion's window, so there is nobody to ask");
+  }
+
+  // A question kept, replacing what was kept of it before.
+  private async keep(key: string, question: Question): Promise<void> {
+    const topic = await this.read(key);
+    const others = (topic.questions ?? []).filter((known) => known.id !== question.id);
+    await this.write({ ...topic, questions: [...others, question] });
+  }
+
+  // Types what was asked into the agent's pane, with how to answer. What
+  // does not reach the agent is taken back, so nothing waits for an answer
+  // that cannot come.
+  private async tellAgent(key: string, question: Question, said: string[]): Promise<void> {
+    const line = [...said, `Answer it with topic answer ${key} ${question.id}, as the discussion skill says.`].join(" ");
+    try {
+      await this.type(await this.agentWindow(key), line);
+    } catch (failure) {
+      const asked = { ...question, exchanges: question.exchanges.slice(0, -1) };
+      const topic = await this.read(key);
+      const others = (topic.questions ?? []).filter((known) => known.id !== question.id);
+      await this.write({ ...topic, questions: asked.exchanges.length > 0 ? [...others, asked] : others });
+      throw new StoreError(`the question did not reach the agent: ${(failure as Error).message}`);
+    }
+  }
+
   // Brings the agent's window up in the terminal.
   async focusAgent(key: string): Promise<void> {
     await raise(await this.agentWindow(key));
@@ -292,6 +378,25 @@ export class Topics {
   async setAgent(key: string, tmux: Tmux): Promise<void> {
     const topic = await this.read(key);
     await this.write({ ...topic, tmux });
+  }
+
+  // A question I am done with. While the agent works, nothing is dismissed,
+  // since it may be answering.
+  async dismiss(key: string, id: string): Promise<Question[]> {
+    if ((await this.agentState(key)) === "busy") throw new StoreError("the agent is working; dismiss once it is done");
+    const topic = await this.read(key);
+    topic.questions = (topic.questions ?? []).filter((known) => known.id !== id);
+    await this.write(topic);
+    return topic.questions;
+  }
+
+  // Types a line into a window and submits it, as if I had typed it there.
+  // The line is submitted apart, since an agent may take a fast run of keys
+  // for a paste and keep it in its input.
+  private async type(target: string, line: string): Promise<void> {
+    await run("tmux", ["send-keys", "-t", target, "-l", line]);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await run("tmux", ["send-keys", "-t", target, "Enter"]);
   }
 
   // Records an id the tool gave a block, to be removed at close unless
@@ -427,6 +532,19 @@ async function raise(target: string): Promise<void> {
   await run("tmux", ["switch-client", "-t", target]).catch(() => undefined);
   const terminal = process.env.TOPIC_OVERVIEW_TERMINAL;
   if (terminal) await run("/usr/bin/open", ["-a", terminal]);
+}
+
+// A text on one line, as a prompt typed into a pane must be: a new line
+// would submit it.
+function oneLine(text: string): string {
+  return text.replace(/\s*\n\s*/g, " / ");
+}
+
+// A block's text, shortened for a prompt; the agent reads the rest in the
+// source.
+function clip(text: string): string {
+  const flat = oneLine(text);
+  return flat.length > 200 ? `${flat.slice(0, 199)}…` : flat;
 }
 
 // The phase a task page is in, as its Task Progress heading names it after

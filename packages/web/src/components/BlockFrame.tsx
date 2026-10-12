@@ -8,16 +8,20 @@ import { SourcePageContext } from "../column.ts";
 import { useComments } from "../comments.ts";
 import { useEditing } from "../editing.ts";
 import { useMarks } from "../marks.ts";
+import { useQuestions } from "../questions.ts";
 import { MarkSeen } from "./MarkSeen.tsx";
+import { QuestionItem } from "./QuestionItem.tsx";
+import { TextField } from "./TextField.tsx";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // Everything around a block's content: the gutter with its name and the
-// Edit, Comment and Copy buttons, which show when I point at the block and
+// Edit, Ask, Comment and Copy buttons, which show when I point at the block and
 // never cover its text; the badge of its comments; and the field for a new
 // one. Editing puts the block's own text in a field in place of its content.
 // A block the agent changed is marked, with a tint and a border, until I
-// confirm I saw it with the check in its gutter, or open it to edit.
+// confirm I saw it with the check in its gutter, or open it to edit. The
+// questions I asked about the block are under it until I dismiss them.
 // A block is named by its label, such as R2, when it has one, and by its id
 // otherwise.
 export function BlockFrame(props: { id: string; text: string; children: JSX.Element }) {
@@ -35,6 +39,10 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
   const marks = useMarks();
   const mark = () => (linkedPage ? undefined : marks.of(props.id));
   const canEdit = !linkedPage && editing.available;
+  const questions = useQuestions();
+  const canAsk = !linkedPage && questions.available;
+  const asked = () => (linkedPage ? [] : questions.of(props.id));
+  const [asking, setAsking] = createSignal(false);
   const [draft, setDraft] = createSignal<string | undefined>(undefined);
   const [loadError, setLoadError] = createSignal<string | undefined>(undefined);
   // Opening a block to edit it means I have seen what the agent changed in
@@ -59,6 +67,16 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
               onClick={startEditing}
             >
               ✎
+            </button>
+          </Show>
+          <Show when={canAsk}>
+            <button
+              type="button"
+              title={questions.blocked() ?? "Ask the agent about this block"}
+              disabled={questions.blocked() !== undefined}
+              onClick={() => setAsking(true)}
+            >
+              ?
             </button>
           </Show>
           <Show when={canComment()}>
@@ -95,6 +113,17 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
             onCancel={() => setDraft(undefined)}
           />
         )}
+      </Show>
+      <For each={asked()} keyed={(question) => question.id}>{(question) => <QuestionItem question={question()} />}</For>
+      <Show when={asking()}>
+        <TextField
+          action="Ask"
+          onSave={async (prompt) => {
+            await questions.ask(props.id, prompt);
+            setAsking(false);
+          }}
+          onCancel={() => setAsking(false)}
+        />
       </Show>
       <Show when={own().length > 0}>
         <div class={["comment-badge", { pinned: pinned() }]}>
@@ -156,45 +185,6 @@ function CommentItem(props: { annotation: Annotation; pinned: boolean }) {
           onCancel={() => setEditing(false)}
         />
       </Show>
-    </div>
-  );
-}
-
-// A field for writing a comment or a block's text. Ctrl or Cmd with Enter
-// saves it, Escape cancels it.
-function TextField(props: { initial?: string; onSave: (body: string) => Promise<void>; onCancel: () => void }) {
-  const [error, setError] = createSignal<string | undefined>(undefined);
-  let field: HTMLTextAreaElement | undefined;
-  const save = () => {
-    const body = field?.value.trim() ?? "";
-    if (!body) return;
-    props.onSave(body).catch((failure: unknown) => setError(String(failure)));
-  };
-  return (
-    <div class="comment-field">
-      <textarea
-        ref={(element) => {
-          field = element;
-          queueMicrotask(() => element.focus());
-        }}
-        rows={3}
-        value={props.initial ?? ""}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) save();
-          if (event.key === "Escape") props.onCancel();
-        }}
-      />
-      <div class="comment-field-actions">
-        <button type="button" onClick={save}>
-          Save
-        </button>
-        <button type="button" onClick={() => props.onCancel()}>
-          Cancel
-        </button>
-        <Show when={error()}>
-          <span class="error">{error()}</span>
-        </Show>
-      </div>
     </div>
   );
 }

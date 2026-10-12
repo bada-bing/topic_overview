@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 import { StoreError } from "@topic-overview/core";
 
 import { agent } from "./commands/agent.ts";
+import { answer } from "./commands/answer.ts";
 import { close } from "./commands/close.ts";
 import { remove } from "./commands/delete.ts";
 import { insert } from "./commands/insert.ts";
@@ -35,6 +36,7 @@ const COMMANDS: Record<string, (args: string[], context: Context) => Promise<voi
   delete: remove,
   "set-id": setId,
   "set-property": setPropertyCommand,
+  answer,
   agent,
 };
 

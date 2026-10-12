@@ -203,3 +203,11 @@ test("a discarded discussion leaves main as it was", async () => {
   assert.equal(existsSync(join(home, "worktrees", "KEY_1")), false);
   assert.equal(git(kb, "branch", "--list", "discussion/*"), "");
 });
+
+test("asking without a Claude session to ask is refused, and nothing is kept", async () => {
+  await topics.open("KEY_1");
+  const head = await topics.head("KEY_1");
+  await assert.rejects(topics.ask("KEY_1", "b2.1", "Why sun?"), /nobody to ask/);
+  assert.equal((await topics.read("KEY_1")).questions, undefined);
+  assert.equal(await topics.head("KEY_1"), head);
+});

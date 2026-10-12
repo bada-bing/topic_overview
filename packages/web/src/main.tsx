@@ -3,6 +3,7 @@ import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, fl
 
 import type { Block, DiscussionView, Mark, SourceProblem } from "@topic-overview/core";
 import { markKey } from "@topic-overview/core/mark";
+import type { Question } from "@topic-overview/core/question";
 import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 
 import { AttachmentList } from "./components/AttachmentList.tsx";
@@ -19,9 +20,11 @@ import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
 import { OpenPageContext } from "./column.ts";
 import { EditingContext } from "./editing.ts";
 import { MarksContext } from "./marks.ts";
+import { QuestionsContext } from "./questions.ts";
 import { ProblemsContext } from "./problems.ts";
 import { CommentsContext, changeComments } from "./comments.ts";
 import { ChangeList } from "./components/ChangeList.tsx";
+import { QuestionList } from "./components/QuestionList.tsx";
 import { CommentList } from "./components/CommentList.tsx";
 import { ConflictBanner } from "./components/ConflictBanner.tsx";
 import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
@@ -243,6 +246,45 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     blocked: () => (agent() === "busy" ? "The agent is working; confirm once it is done" : undefined),
   };
 
+  // What I asked the agent about blocks, as the server last told it: with
+  // the content, or after asking or dismissing.
+  const [questions, setQuestions] = createSignal(() => view().questions ?? []);
+  const asking = {
+    available: props.live,
+    of: (block: string) => questions().filter((question) => question.block === block),
+    ask: async (block: string, prompt: string) => {
+      const question = await readAnswer<Question>(
+        await fetch(`${base}/questions`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ block, prompt }),
+        }),
+      );
+      setQuestions([...questions(), question]);
+    },
+    followUp: async (question: Question, prompt: string) => {
+      const asked = await readAnswer<Question>(
+        await fetch(`${base}/questions/${encodeURIComponent(question.id)}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        }),
+      );
+      setQuestions(questions().map((known) => (known.id === asked.id ? asked : known)));
+    },
+    dismiss: (question: Question) => {
+      fetch(`${base}/questions/${encodeURIComponent(question.id)}`, { method: "DELETE" })
+        .then((response) => readAnswer<Question[]>(response))
+        .then(setQuestions, () => {});
+    },
+    blocked: () =>
+      agent() === "busy"
+        ? "The agent is working; ask once it is done"
+        : agent() === "gone"
+          ? "No Claude session runs in the discussion's pane, so there is nobody to ask"
+          : undefined,
+  };
+
   // The block a mark is on, by its id; a removed one has none.
   const blockOfMark = (mark: Mark) => (mark.id ? blocks().get(mark.id) : undefined);
 
@@ -387,6 +429,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         <ProblemsContext value={report}>
         <EditingContext value={editing}>
         <MarksContext value={marking}>
+        <QuestionsContext value={asking}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
@@ -398,6 +441,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         >
           <aside class="sidebar">
             <ChangeList marks={marks()} blockOf={blockOfMark} onSeen={marking.clear} />
+            <QuestionList questions={questions()} blockOf={(question) => blocks().get(question.block)} />
             <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}
@@ -457,6 +501,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         </OpenAssetContext>
         </OpenPageContext>
         </RelateContext>
+        </QuestionsContext>
         </MarksContext>
         </EditingContext>
         </ProblemsContext>

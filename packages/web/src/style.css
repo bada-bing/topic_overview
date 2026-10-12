@@ -1120,6 +1120,81 @@ main [id] {
   cursor: default;
 }
 
+/* A question I asked about a block, under it until I dismiss it: what I
+   asked, and the agent's answer, or that it is still awaited. */
+.question {
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--now);
+  background: var(--code-background);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.question.answered {
+  border-left-color: var(--link);
+}
+
+.question-head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.question-prompt {
+  flex: 1;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+.question-dismiss {
+  font: inherit;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.question-dismiss:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.question-waiting {
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.question-answer {
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+
+.question-exchange + .question-exchange {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+.question-further {
+  margin-top: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--link);
+  cursor: pointer;
+  padding: 1px 8px;
+}
+
+.question-further:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* The discussion's line opens the agent's window in the terminal. */
 button.task-discussion {
   font: inherit;
@@ -1128,4 +1203,32 @@ button.task-discussion {
   padding: 0;
   cursor: pointer;
   text-decoration: underline dotted;
+}
+
+/* The questions I asked sit below the changes, in a box of their own, each
+   edged by its state: amber while an answer is awaited, blue once it came. */
+.question-list {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--code-background);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+.question-list .question-entry {
+  border-left: 3px solid var(--now);
+  margin-bottom: 4px;
+}
+
+.question-list .question-entry.answered {
+  border-left-color: var(--link);
+}
+
+.question-list .question-entry:hover {
+  background: var(--background);
+}
+
+.question-state {
+  font-size: 0.8em;
+  color: var(--muted);
 }

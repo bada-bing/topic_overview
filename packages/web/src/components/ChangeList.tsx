@@ -8,7 +8,7 @@ const EXCERPT = 60;
 
 // The start of a block's text as it reads, without its markup: a link shows
 // its text, a page link its name, code its content.
-function excerpt(text: string): string {
+export function excerpt(text: string): string {
   const line = text
     .split("\n")[0]
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")

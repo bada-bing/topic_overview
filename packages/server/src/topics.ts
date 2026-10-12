@@ -5,8 +5,10 @@
 // doing; `…/assets/<file>` a file of the knowledge base's assets/, such as an
 // image, as the branch has it; `…/blocks/<id>` a block's own text, read with
 // GET and saved with PUT from the Edit button; `…/marks/<id>` deleted when I
-// confirm I saw what the agent changed in a block; `…/agent` posted to bring
-// the agent's tmux window up in the terminal.
+// confirm I saw what the agent changed in a block; `…/questions` posted to ask
+// the agent about a block, `…/questions/<id>` posted to ask further and
+// deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
+// up in the terminal.
 
 import { watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -17,7 +19,7 @@ import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, pag
 
 import { integrationStates } from "./integrations.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|agent)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent)(?:\/([^/]+))?)?$/;
 
 // A heartbeat the page can see, so it can tell a stream that died quietly.
 const HEARTBEAT = 10_000;
@@ -60,6 +62,17 @@ export async function handleTopic(
     return send(response, 200, { text: await store().ownText(key, file) });
   }
   if (verb === "marks" && file && request.method === "DELETE") return send(response, 200, await store().clearMark(key, file));
+  if (verb === "questions" && !file && request.method === "POST") {
+    const { block, prompt } = await readJson<{ block?: unknown; prompt?: unknown }>(request);
+    if (typeof block !== "string" || typeof prompt !== "string") throw new StoreError("a question needs a block and a prompt");
+    return send(response, 200, await store().ask(key, block, prompt));
+  }
+  if (verb === "questions" && file && request.method === "POST") {
+    const { prompt } = await readJson<{ prompt?: unknown }>(request);
+    if (typeof prompt !== "string") throw new StoreError("a follow-up needs a prompt");
+    return send(response, 200, await store().followUp(key, file, prompt));
+  }
+  if (verb === "questions" && file && request.method === "DELETE") return send(response, 200, await store().dismiss(key, file));
   if (verb === "agent" && request.method === "POST") {
     await store().focusAgent(key);
     return send(response, 200, {});
@@ -98,12 +111,14 @@ function view(topic: Topic, text: string): DiscussionView {
     earlier: [],
     branch: topic.branch,
     marks: topic.marks ?? [],
+    questions: topic.questions ?? [],
     problems: sourceProblems(page),
   };
 }
 
 // What an open discussion is watched for: its source changing in the
-// worktree, its agent's state, and what is new on main. One watcher belongs
+// worktree, its state changing, such as by an answer, its agent's state, and
+// what is new on main. One watcher belongs
 // to the discussion, not to a page: it starts with the first page open on it
 // and stops with the last, and what it finds goes to every page open on it,
 // so no page misses what another one's check found.
@@ -153,10 +168,16 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   // The folder is watched rather than the file, since git replaces a file it
   // checks out or merges, and a watcher on the file would end with it.
   const file = join(store().worktree(key), topic.page);
-  const watcher = watchFiles(dirname(file), (_event, name) => {
-    if (name !== basename(file)) return;
+  const changed = () => {
     clearTimeout(timer);
     timer = setTimeout(() => tell(watch, { kind: "version", message: "The source changed." }), SETTLE);
+  };
+  const watcher = watchFiles(dirname(file), (_event, name) => {
+    if (name === basename(file)) changed();
+  });
+  const state = `${key}.json`;
+  const stateWatcher = watchFiles(store().root, (_event, name) => {
+    if (name === state) changed();
   });
   // What the agent is doing, told when it changes, so the pages let me edit
   // only while the agent is not working.
@@ -209,6 +230,7 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
     clearInterval(agentPoll);
     clearInterval(mainPoll);
     watcher.close();
+    stateWatcher.close();
   };
 }
 

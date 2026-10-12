@@ -10,6 +10,7 @@ export interface Context {
   place?: { place: Place; address: string }; // where a block goes: --after, --before or --into a block
   line?: { line: number; text: string }; // a block without an id: its line and its first line
   nil?: boolean; // a property removed rather than set
+  discard?: boolean; // a discussion closed with nothing merged
 }
 
 // pnpm runs the command from the repository, and keeps the directory it was
@@ -19,7 +20,7 @@ export function context(
   from: string | undefined,
   label?: string,
   places: Partial<Record<Place, string>> = {},
-  at: { line?: string; text?: string; nil?: boolean } = {},
+  at: { line?: string; text?: string; nil?: boolean; discard?: boolean } = {},
 ): Context {
   const store = new Store();
   const session = sessionId ? claudeSession(sessionId, process.env.INIT_CWD ?? process.cwd()) : undefined;
@@ -29,7 +30,7 @@ export function context(
   if ((at.line === undefined) !== (at.text === undefined)) throw new StoreError("give both --line and --text");
   const line = at.line === undefined ? undefined : { line: Number(at.line), text: at.text! };
   if (line && !Number.isInteger(line.line)) throw new StoreError("--line takes a line number");
-  return { store, session, label, place, line, nil: at.nil, from: from === undefined ? undefined : Number(from) };
+  return { store, session, label, place, line, nil: at.nil, discard: at.discard, from: from === undefined ? undefined : Number(from) };
 }
 
 // A block given to be written, read from stdin.

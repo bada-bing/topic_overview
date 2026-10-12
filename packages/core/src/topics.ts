@@ -7,15 +7,16 @@
 // key names it.
 
 import { execFile } from "node:child_process";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { randomUUID } from "node:crypto";
 
 import type { Integration, Session } from "./discussion.ts";
-import { blockName, idAt, locate, ownText, replaceBlock, setId, withOwnText } from "./edit.ts";
+import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
 import { StoreError } from "./store.ts";
 
@@ -54,6 +55,14 @@ export interface Topic {
   integrations: Integration[];
   ids?: string[]; // the ids the tool gave blocks, removed at close unless something refers to them
   marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
+  closed?: string; // the commit on main the discussion closed into, while what is left of it is removed
+}
+
+// How a discussion closed: the commit on main it was squashed into, or none
+// when it changed nothing, or was discarded.
+export interface Closed {
+  commit?: string;
+  subject?: string;
 }
 
 
@@ -256,6 +265,88 @@ export class Topics {
     await this.write(topic);
   }
 
+  // Closes the discussion into main: main merged one last time, the ids the
+  // tool gave removed unless something refers to them, and the branch
+  // squashed into one commit on main, named by the knowledge base's commit
+  // rules. A discussion that changed nothing makes no commit. Main moves by
+  // fast-forward only, so it either has the whole commit or none of it; what
+  // is left of the discussion is removed after, and closing again finishes
+  // a removal that stopped part way.
+  async close(key: string): Promise<Closed> {
+    const topic = await this.read(key);
+    if (topic.closed) {
+      await this.remove(topic);
+      return { commit: topic.closed };
+    }
+    await this.refuseUncommitted();
+    const checkedOut = (await git(this.kb, "branch", "--show-current")).trim();
+    if (checkedOut !== "main") throw new StoreError(`the knowledge base is on ${checkedOut || "no branch"}, not main`);
+    const merged = await this.mergeMain(key);
+    if ("conflict" in merged) {
+      throw new StoreError(`merging main stopped on a conflict in ${merged.conflict.join(", ")}; resolve it in the terminal first`);
+    }
+    await this.removeIds(key);
+
+    const worktree = this.worktree(key);
+    const main = (await git(this.kb, "rev-parse", "main")).trim();
+    const current = await git(worktree, "merge-base", "--is-ancestor", main, "HEAD").then(
+      () => true,
+      () => false,
+    );
+    if (!current) throw new StoreError("main moved while the discussion was closing; close it again");
+    const changed = (await git(worktree, "diff", "--name-only", main, "HEAD")).split("\n").filter(Boolean);
+    if (changed.length === 0) {
+      await this.remove(topic);
+      return {};
+    }
+    const subject = `${key}: ${phaseOf(await readFile(join(worktree, topic.page), "utf8")) ?? "Update"}`;
+    const others = changed
+      .filter((file) => file !== topic.page && file.startsWith("pages/") && file.endsWith(".md"))
+      .map((file) => `- update ${basename(file, ".md").replaceAll("%2F", "/")}`);
+    const message = others.length > 0 ? `${subject}\n\n${others.join("\n")}\n` : `${subject}\n`;
+    const commit = (await git(this.kb, "commit-tree", `${topic.branch}^{tree}`, "-p", main, "-m", message)).trim();
+    await git(this.kb, "merge", "--ff-only", "--quiet", commit);
+    const short = (await git(this.kb, "rev-parse", "--short", commit)).trim();
+    await this.write({ ...(await this.read(key)), closed: short });
+    await this.remove(topic);
+    return { commit: short, subject };
+  }
+
+  // Ends the discussion with nothing merged: its worktree, branch and state
+  // are removed, and main is left as it is.
+  async discard(key: string): Promise<void> {
+    await this.remove(await this.read(key));
+  }
+
+  // The ids the tool gave blocks removed, in a commit of their own, unless a
+  // reference anywhere in the knowledge base points at one.
+  private async removeIds(key: string): Promise<void> {
+    const ids = (await this.read(key)).ids ?? [];
+    const worktree = this.worktree(key);
+    const unreferenced: string[] = [];
+    for (const id of ids) {
+      const referred = await git(worktree, "grep", "--quiet", "-F", `((${id}))`).then(
+        () => true,
+        () => false,
+      );
+      if (!referred) unreferenced.push(id);
+    }
+    const before = await readFile(await this.sourcePath(key), "utf8");
+    const after = unreferenced.reduce(removeId, before);
+    if (after !== before) await this.change(key, "Remove the ids the discussion added", () => after);
+  }
+
+  // The worktree, the branch and the state, each removed if it is still
+  // there, the state last, so a removal that stops part way is finished by
+  // closing again.
+  private async remove(topic: Topic): Promise<void> {
+    const worktree = this.worktree(topic.key);
+    if (existsSync(worktree)) await git(this.kb, "worktree", "remove", "--force", worktree);
+    await git(this.kb, "worktree", "prune");
+    if (await this.branchExists(topic.branch)) await git(this.kb, "branch", "--quiet", "-D", topic.branch);
+    await rm(this.stateFile(topic.key), { force: true });
+  }
+
   async list(): Promise<Topic[]> {
     const entries = await readdir(this.root).catch(() => [] as string[]);
     const keys = entries.filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -".json".length));
@@ -289,6 +380,21 @@ export class Topics {
       () => false,
     );
   }
+}
+
+// The phase a task page is in, as its Task Progress heading names it after
+// the marker: `### 🌗 Implement the Solution` is in Implement the Solution.
+// A page with no Task Progress has none.
+function phaseOf(text: string): string | undefined {
+  const lines = text.split("\n");
+  const progress = lines.findIndex((line) => /^\t*- ## Task Progress\s*$/.test(line));
+  if (progress === -1) return undefined;
+  for (const line of lines.slice(progress + 1)) {
+    if (/^\t*- ## /.test(line)) return undefined;
+    const phase = /^\t*- ### \S+ (.+?)\s*$/.exec(line);
+    if (phase) return phase[1];
+  }
+  return undefined;
 }
 
 async function git(cwd: string, ...args: string[]): Promise<string> {

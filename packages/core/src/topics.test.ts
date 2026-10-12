@@ -136,3 +136,70 @@ test("a conflict stops the merge, and nothing is changed until it is resolved", 
   git(join(home, "worktrees", "KEY_1"), "merge", "--abort");
   assert.deepEqual(await topics.conflict("KEY_1"), []);
 });
+
+test("closing squashes the discussion into one commit on main, named by the phase, and removes it", async () => {
+  await writeFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), `- ## Task Progress\n\t- ### 🌗 Implement the Solution\n${PAGE}`);
+  git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-am", "KEY_1: Implement the Solution");
+  await topics.open("KEY_1");
+  const worktree = join(home, "worktrees", "KEY_1");
+  await topics.setId("KEY_1", 5, "The beds need more sun");
+  await topics.change("KEY_1", "Shade", (text) => text.replace("more sun", "more shade"));
+  await writeFile(join(worktree, "pages", "other.md"), "- another page\n");
+  git(worktree, "add", ".");
+  git(worktree, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "other: Add");
+  const before = git(kb, "rev-parse", "HEAD").trim();
+
+  const closed = await topics.close("KEY_1");
+  assert.equal(closed.subject, "KEY_1: Implement the Solution");
+  assert.equal(git(kb, "rev-parse", "HEAD^").trim(), before);
+  assert.equal(git(kb, "log", "-1", "--format=%B").trim(), "KEY_1: Implement the Solution\n\n- update other");
+  const page = await readFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), "utf8");
+  assert.match(page, /more shade/);
+  assert.doesNotMatch(page, /id::/);
+  assert.equal(git(kb, "status", "--short"), "");
+  assert.equal(existsSync(worktree), false);
+  assert.equal(existsSync(`${worktree}.json`), false);
+  assert.equal(git(kb, "branch", "--list", "discussion/*"), "");
+});
+
+test("an id something refers to is kept when the discussion closes", async () => {
+  await topics.open("KEY_1");
+  const { id } = await topics.setId("KEY_1", 3, "The beds need more sun");
+  await topics.change("KEY_1", "Refer", (text) => `${text}- see ((${id}))\n`);
+  await topics.close("KEY_1");
+  assert.match(await readFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), "utf8"), new RegExp(`id:: ${id}`));
+});
+
+test("a discussion that changed nothing closes without a commit on main", async () => {
+  await topics.open("KEY_1");
+  await topics.setId("KEY_1", 3, "The beds need more sun");
+  const before = git(kb, "rev-parse", "HEAD").trim();
+  assert.deepEqual(await topics.close("KEY_1"), {});
+  assert.equal(git(kb, "rev-parse", "HEAD").trim(), before);
+  assert.deepEqual(await topics.list(), []);
+});
+
+test("closing leaves a journal written meanwhile alone, and stops on a conflict", async () => {
+  await mkdir(join(kb, "journals"));
+  await topics.open("KEY_1");
+  await writeFile(join(kb, "journals", "2026_10_14.md"), "- written all day\n");
+  await topics.change("KEY_1", "Shade", (text) => text.replace("more sun", "more shade"));
+  await writeFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), PAGE.replace("more sun", "more water"));
+  git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "KEY_1: Water", "--", "pages");
+  await assert.rejects(topics.close("KEY_1"), /conflict/);
+  assert.equal((await topics.list()).length, 1);
+  git(join(home, "worktrees", "KEY_1"), "merge", "--abort");
+  await topics.discard("KEY_1");
+  assert.match(await readFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), "utf8"), /more water/);
+  assert.equal(await readFile(join(kb, "journals", "2026_10_14.md"), "utf8"), "- written all day\n");
+});
+
+test("a discarded discussion leaves main as it was", async () => {
+  await topics.open("KEY_1");
+  await topics.change("KEY_1", "Shade", (text) => text.replace("more sun", "more shade"));
+  const before = git(kb, "rev-parse", "HEAD").trim();
+  await topics.discard("KEY_1");
+  assert.equal(git(kb, "rev-parse", "HEAD").trim(), before);
+  assert.equal(existsSync(join(home, "worktrees", "KEY_1")), false);
+  assert.equal(git(kb, "branch", "--list", "discussion/*"), "");
+});

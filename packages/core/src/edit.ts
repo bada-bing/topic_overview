@@ -266,6 +266,19 @@ export function setProperty(text: string, id: string, name: string, value: strin
   return lines.join("\n");
 }
 
+// The block's id line removed, as the tool removes the ids it gave when the
+// discussion closes. A block that is gone, or has no such id, leaves the text
+// as it was.
+export function removeId(text: string, id: string): string {
+  const lines = text.split("\n");
+  const at = lines.findIndex((line) => {
+    const property = PROPERTY.exec(line);
+    return property?.[1] === "id" && property[2].trim() === id;
+  });
+  if (at !== -1) lines.splice(at, 1);
+  return lines.join("\n");
+}
+
 // A new block, given with its id, placed after or before a block, or into it
 // as its last child.
 export function insertBlock(text: string, place: Place, target: string, input: string, id: string): string {

@@ -1,32 +1,21 @@
-// topic open <key> [--session <id>]
+// topic open <key>
 // Opens a discussion of a task's page on a branch of the knowledge base,
-// checked out in a worktree beside it. Run by the agent in the tmux session it
-// belongs to, so asks reach it through its pane. A topic already open is
-// reported as it is. It prints the commit, the source file the agent reads,
-// and the view.
+// checked out in a worktree beside it. A topic already open is reported as
+// it is. It prints the commit, the source file the agent reads, and the
+// view. Who runs it does not matter: the discussion's agent is the first
+// window of the tmux session named after the key, until `topic agent` says
+// otherwise.
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-import { type Tmux, Topics } from "@topic-overview/core";
+import { Topics } from "@topic-overview/core";
 
 import { type Context, need, topicUrl } from "../context.ts";
 
-const USAGE = "topic open <key> [--session <id>]";
-const run = promisify(execFile);
+const USAGE = "topic open <key>";
 
 export async function open([key]: string[], context: Context): Promise<void> {
   const topics = new Topics();
-  const { topic, opened } = await topics.open(need(key, USAGE), context.session, await tmux());
+  const { topic, opened } = await topics.open(need(key, USAGE), context.session);
   console.log(`${opened ? "opened" : "already open"} ${topic.key} on ${topic.branch} at ${await topics.head(topic.key)}`);
   console.log(`source  ${await topics.sourcePath(topic.key)}`);
   console.log(`view    ${topicUrl(topic.key)}`);
-}
-
-// The pane the command runs in, and its session. Outside tmux there is none.
-async function tmux(): Promise<Tmux | undefined> {
-  const pane = process.env.TMUX_PANE;
-  if (!pane) return undefined;
-  const { stdout } = await run("tmux", ["display-message", "-p", "-t", pane, "#S"]);
-  return { session: stdout.trim(), pane };
 }

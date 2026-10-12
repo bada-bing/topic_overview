@@ -1119,3 +1119,13 @@ main [id] {
   background: none;
   cursor: default;
 }
+
+/* The discussion's line opens the agent's window in the terminal. */
+button.task-discussion {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}

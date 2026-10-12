@@ -39,10 +39,14 @@ export function worktreesRoot(kb: string = kbRoot()): string {
   return configured.startsWith("~/") ? join(homedir(), configured.slice(2)) : configured;
 }
 
-// Where the agent that a discussion belongs to runs.
+// Where the agent that a discussion belongs to runs: a tmux session and a
+// window in it. Without one recorded, it is the session named after the
+// topic's key; without a window, that session's first, where the assistant
+// runs. It is looked up each time it is needed, so it is always whatever
+// runs there now.
 export interface Tmux {
   session: string;
-  pane: string;
+  window?: string;
 }
 
 export interface Topic {
@@ -65,6 +69,8 @@ export interface Closed {
   subject?: string;
 }
 
+
+export type AgentState = "busy" | "waiting" | "idle" | "gone";
 
 export interface OpenTopic {
   topic: Topic;
@@ -205,16 +211,26 @@ export class Topics {
 
   // What the discussion's agent is doing, read from its tmux window, which
   // the status bar marks: busy while it works, waiting when the turn is
-  // over. A pane that is gone, or none recorded, has no agent to wait for.
-  async agentState(key: string): Promise<"busy" | "waiting" | "idle" | "gone"> {
-    const pane = (await this.read(key)).tmux?.pane;
-    if (!pane) return "gone";
+  // over. A window that is gone, or one where Claude does not run, has no
+  // agent to wait for or to ask.
+  async agentState(key: string): Promise<AgentState> {
+    return (await this.agent(key)).state;
+  }
+
+  // The agent's state, and where it runs, named as tmux names it:
+  // `<session>:<window>`.
+  async agent(key: string): Promise<{ state: AgentState; name?: string }> {
+    const target = await this.agentWindow(key);
     try {
-      const { stdout } = await run("tmux", ["display-message", "-p", "-t", pane, "#{@window_state}"]);
-      const state = stdout.trim();
-      return state === "busy" || state === "waiting" ? state : "idle";
+      const format = "#{pane_current_command}\t#{@window_state}\t#{session_name}:#{window_name}";
+      const { stdout } = await run("tmux", ["display-message", "-p", "-t", target, format]);
+      const [command, state, name] = stdout.trimEnd().split("\t");
+      // A session that does not exist is answered with empty fields.
+      if (!name || name.startsWith(":")) return { state: "gone" };
+      if (command !== "claude") return { state: "gone", name };
+      return { state: state === "busy" || state === "waiting" ? state : "idle", name };
     } catch {
-      return "gone";
+      return { state: "gone" };
     }
   }
 
@@ -257,6 +273,25 @@ export class Topics {
     topic.marks = (topic.marks ?? []).filter((known) => markKey(known) !== which);
     await this.write(topic);
     return topic.marks;
+  }
+
+  // Brings the agent's window up in the terminal.
+  async focusAgent(key: string): Promise<void> {
+    await raise(await this.agentWindow(key));
+  }
+
+  // The tmux window the discussion's agent runs in, as a target: the one
+  // recorded, or the first window of the session named after the key.
+  private async agentWindow(key: string): Promise<string> {
+    const { session, window } = (await this.read(key)).tmux ?? { session: key };
+    return `=${session}:${window ?? "^"}`;
+  }
+
+  // Moves the discussion to another agent: a tmux session, and a window in
+  // it when not its first.
+  async setAgent(key: string, tmux: Tmux): Promise<void> {
+    const topic = await this.read(key);
+    await this.write({ ...topic, tmux });
   }
 
   // Records an id the tool gave a block, to be removed at close unless
@@ -382,6 +417,16 @@ export class Topics {
       () => false,
     );
   }
+}
+
+// A tmux window made current in its session, the last client used switched
+// to that session, and the terminal app, TOPIC_OVERVIEW_TERMINAL in .env,
+// raised. Without a client or a terminal app configured, only tmux moves.
+async function raise(target: string): Promise<void> {
+  await run("tmux", ["select-window", "-t", target]);
+  await run("tmux", ["switch-client", "-t", target]).catch(() => undefined);
+  const terminal = process.env.TOPIC_OVERVIEW_TERMINAL;
+  if (terminal) await run("/usr/bin/open", ["-a", terminal]);
 }
 
 // The phase a task page is in, as its Task Progress heading names it after

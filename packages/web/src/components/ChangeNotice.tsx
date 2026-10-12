@@ -12,7 +12,7 @@ export type Change =
   | { kind: "linked"; page: string; message: string }
   | { kind: "info"; message: string; files?: string[] } // files: what an update from main changed that matters here
   | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string } }
-  | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone" } // what the discussion's agent is doing
+  | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone"; name?: string } // what the discussion's agent is doing, and where
   | { kind: "conflict"; files: string[] }; // the files a merge from main stopped on; none once resolved
 
 // Only a changed source blocks the page: what it shows is out of date, and

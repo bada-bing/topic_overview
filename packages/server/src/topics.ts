@@ -5,7 +5,8 @@
 // doing; `…/assets/<file>` a file of the knowledge base's assets/, such as an
 // image, as the branch has it; `…/blocks/<id>` a block's own text, read with
 // GET and saved with PUT from the Edit button; `…/marks/<id>` deleted when I
-// confirm I saw what the agent changed in a block.
+// confirm I saw what the agent changed in a block; `…/agent` posted to bring
+// the agent's tmux window up in the terminal.
 
 import { watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -16,7 +17,7 @@ import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, pag
 
 import { integrationStates } from "./integrations.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|agent)(?:\/([^/]+))?)?$/;
 
 // A heartbeat the page can see, so it can tell a stream that died quietly.
 const HEARTBEAT = 10_000;
@@ -59,6 +60,10 @@ export async function handleTopic(
     return send(response, 200, { text: await store().ownText(key, file) });
   }
   if (verb === "marks" && file && request.method === "DELETE") return send(response, 200, await store().clearMark(key, file));
+  if (verb === "agent" && request.method === "POST") {
+    await store().focusAgent(key);
+    return send(response, 200, {});
+  }
   if (request.method !== "GET") return send(response, 405, { error: "method not allowed" });
   if (verb === "events") return subscribe(response, key);
   if (verb === "assets") return sendAsset(response, key, file);
@@ -105,6 +110,7 @@ function view(topic: Topic, text: string): DiscussionView {
 interface Watch {
   pages: Set<ServerResponse>;
   agent?: string;
+  agentName?: string;
   conflict: string;
   stop: () => void;
 }
@@ -128,7 +134,7 @@ async function subscribe(response: ServerResponse, key: string): Promise<void> {
   }
   watch.pages.add(response);
   // A page that joins learns what the others know already.
-  if (watch.agent) response.write(`event: change\ndata: ${JSON.stringify({ kind: "agent", state: watch.agent })}\n\n`);
+  if (watch.agent) response.write(`event: change\ndata: ${JSON.stringify({ kind: "agent", state: watch.agent, name: watch.agentName })}\n\n`);
   if (watch.conflict) response.write(`event: change\ndata: ${JSON.stringify({ kind: "conflict", files: watch.conflict.split("\n") })}\n\n`);
   const heartbeat = setInterval(() => response.write("event: heartbeat\ndata: \n\n"), HEARTBEAT);
   const watched = watch;
@@ -155,10 +161,11 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   // What the agent is doing, told when it changes, so the pages let me edit
   // only while the agent is not working.
   const askAgent = async () => {
-    const state = await store().agentState(key);
-    if (state === watch.agent) return;
+    const { state, name } = await store().agent(key);
+    if (state === watch.agent && name === watch.agentName) return;
     watch.agent = state;
-    tell(watch, { kind: "agent", state });
+    watch.agentName = name;
+    tell(watch, { kind: "agent", state, name });
   };
   // What is new on main is merged as it lands, while the agent is not
   // working, so a merge never lands in the middle of its turn. A merge that

@@ -43,6 +43,13 @@ const RECONNECT = 2_000;
 // How long a stream may stay silent, heartbeats included, before the page
 // takes it for dead.
 const SILENCE = 25_000;
+// What the discussion's agent is doing, in words.
+const AGENT_STATES: Record<string, string> = {
+  busy: "working",
+  waiting: "waiting for you",
+  idle: "idle",
+  gone: "no Claude session",
+};
 
 async function fetchDiscussion(base: string): Promise<DiscussionView> {
   return readAnswer<DiscussionView>(await fetch(base));
@@ -107,8 +114,12 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     if (id !== pointed()) setPointed(id);
   };
   // A discussion on the source itself has no versions, only its branch.
+  // A discussion on the source is named by the Claude session it belongs to,
+  // as tmux names it, and what that session is doing; a copy by its version.
   const discussionLine = () =>
-    view().branch ?? `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
+    view().branch
+      ? [agentName(), AGENT_STATES[agent()] ?? agent()].filter(Boolean).join(" · ")
+      : `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
   const blocks = createMemo(() => new Map([...walk(page().blocks)].map((block) => [block.id, block])));
   // The metadata folds as a section of its own, ahead of the page's; its
   // content is no block, so a stand-in makes it one that folds.
@@ -205,6 +216,13 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // What the discussion's agent is doing, told by the server. While it works,
   // blocks are not edited and changes not confirmed from the page.
   const [agent, setAgent] = createSignal<string>("idle");
+  const [agentName, setAgentName] = createSignal<string | undefined>(undefined);
+  // Bringing the agent's window up in the terminal, while a Claude session
+  // runs the discussion.
+  const focusAgent = () =>
+    view().branch && agent() !== "gone"
+      ? () => void fetch(`${base}/agent`, { method: "POST" }).catch(() => {})
+      : undefined;
 
   // The blocks the agent changed that I have not confirmed seeing, as the
   // server last told them: with the content, or after a confirmation.
@@ -271,7 +289,10 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       // A change to the source is fetched and shown in place, keeping what is
       // open; the old content stays until the new one has arrived.
       if (change.kind === "version") return refresh(view);
-      if (change.kind === "agent") return setAgent(change.state);
+      if (change.kind === "agent") {
+        setAgentName(change.name);
+        return setAgent(change.state);
+      }
       if (change.kind === "conflict") return setConflict(change.files);
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
@@ -401,7 +422,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                 </header>
               }
             >
-              {(header) => <TaskHeader task={header()} discussion={discussionLine()} />}
+              {(header) => <TaskHeader task={header()} discussion={discussionLine()} onDiscussion={focusAgent()} />}
             </Show>
             <main>
               <Blocks blocks={leading()} />

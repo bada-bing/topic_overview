@@ -15,7 +15,7 @@ const PAGE = `- # KEY_1 Grow vegetables
 `;
 
 const SESSION = { id: "session-a", transcript: "/transcripts/session-a.jsonl" };
-const TMUX = { session: "KEY_1", pane: "%7" };
+const TMUX = { session: "KEY_1", window: "2" };
 
 let home: string;
 let kb: string;

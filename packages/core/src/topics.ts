@@ -249,8 +249,10 @@ export class Topics {
     await this.write(topic);
   }
 
-  // Confirms a change was seen, clearing its mark.
+  // Confirms a change was seen, clearing its mark. While the agent works,
+  // nothing is confirmed, since it writes the marks.
   async clearMark(key: string, which: string): Promise<Mark[]> {
+    if ((await this.agentState(key)) === "busy") throw new StoreError("the agent is working; confirm once it is done");
     const topic = await this.read(key);
     topic.marks = (topic.marks ?? []).filter((known) => markKey(known) !== which);
     await this.write(topic);

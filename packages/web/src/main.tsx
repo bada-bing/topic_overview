@@ -202,6 +202,10 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     return () => document.removeEventListener("click", onClick);
   });
 
+  // What the discussion's agent is doing, told by the server. While it works,
+  // blocks are not edited and changes not confirmed from the page.
+  const [agent, setAgent] = createSignal<string>("idle");
+
   // The blocks the agent changed that I have not confirmed seeing, as the
   // server last told them: with the content, or after a confirmation.
   const [marks, setMarks] = createSignal(() => view().marks ?? []);
@@ -218,14 +222,12 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         .then((response) => readAnswer<Mark[]>(response))
         .then(setMarks, () => {});
     },
+    blocked: () => (agent() === "busy" ? "The agent is working; confirm once it is done" : undefined),
   };
 
   // The block a mark is on, by its id; a removed one has none.
   const blockOfMark = (mark: Mark) => (mark.id ? blocks().get(mark.id) : undefined);
 
-  // What the discussion's agent is doing, told by the server. While it works,
-  // blocks are not edited from the page.
-  const [agent, setAgent] = createSignal<string>("idle");
   // The files a merge from main stopped on, as the page loaded or as the
   // server told since; while there are any, nothing is edited.
   const [conflict, setConflict] = createSignal(() => view().conflict ?? []);

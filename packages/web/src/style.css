@@ -1020,6 +1020,11 @@ main [id] {
   padding: 0 5px;
 }
 
+.mark-seen:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* What the block read before, shown on the check's hover: to the left of a
    block's check, at the page's right edge. */
 .mark-before {

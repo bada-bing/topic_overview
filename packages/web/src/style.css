@@ -1232,3 +1232,14 @@ button.task-discussion {
   font-size: 0.8em;
   color: var(--muted);
 }
+
+/* A worktree or a Claude session in the metadata brings its tmux window up. */
+.metadata-open {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--link);
+  text-align: left;
+}

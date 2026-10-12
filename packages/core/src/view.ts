@@ -14,6 +14,7 @@ export interface DiscussionView {
   attachments: Attachment[];
   earlier: EarlierDiscussion[]; // the other discussions of the same source, oldest first
   branch?: string; // the branch a discussion on the source itself is on
+  worktree?: string; // where that branch is checked out
   problems?: SourceProblem[]; // what the page cannot render of its source, each with the reason
   marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
   conflict?: string[]; // the files a merge from main stopped on, until it is resolved

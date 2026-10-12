@@ -8,7 +8,8 @@
 // confirm I saw what the agent changed in a block; `…/questions` posted to ask
 // the agent about a block, `…/questions/<id>` posted to ask further and
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
-// up in the terminal.
+// up in the terminal; `…/worktree` posted to bring up a window working in the
+// discussion's worktree.
 
 import { watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -19,7 +20,7 @@ import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, pag
 
 import { integrationStates } from "./integrations.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|worktree)(?:\/([^/]+))?)?$/;
 
 // A heartbeat the page can see, so it can tell a stream that died quietly.
 const HEARTBEAT = 10_000;
@@ -77,6 +78,10 @@ export async function handleTopic(
     await store().focusAgent(key);
     return send(response, 200, {});
   }
+  if (verb === "worktree" && request.method === "POST") {
+    await store().focusWorktree(key);
+    return send(response, 200, {});
+  }
   if (request.method !== "GET") return send(response, 405, { error: "method not allowed" });
   if (verb === "events") return subscribe(response, key);
   if (verb === "assets") return sendAsset(response, key, file);
@@ -110,6 +115,7 @@ function view(topic: Topic, text: string): DiscussionView {
     attachments: [],
     earlier: [],
     branch: topic.branch,
+    worktree: store().worktree(topic.key),
     marks: topic.marks ?? [],
     questions: topic.questions ?? [],
     problems: sourceProblems(page),

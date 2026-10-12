@@ -380,6 +380,19 @@ export class Topics {
     await this.write({ ...topic, tmux });
   }
 
+  // Brings up a window in the discussion's tmux session working in its
+  // worktree, named after the knowledge base, such as `KB`, made the first
+  // time it is asked for.
+  async focusWorktree(key: string): Promise<void> {
+    const session = (await this.read(key)).tmux?.session ?? key;
+    const name = basename(this.kb);
+    const { stdout } = await run("tmux", ["list-windows", "-t", `=${session}`, "-F", "#{window_name}"]);
+    if (!stdout.split("\n").includes(name)) {
+      await run("tmux", ["new-window", "-d", "-t", `=${session}:`, "-n", name, "-c", this.worktree(key)]);
+    }
+    await raise(`=${session}:${name}`);
+  }
+
   // A question I am done with. While the agent works, nothing is dismissed,
   // since it may be answering.
   async dismiss(key: string, id: string): Promise<Question[]> {

@@ -499,6 +499,9 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                 view={view()}
                 open={shown().has(METADATA)}
                 onToggle={() => toggle(METADATA)}
+                agent={discussionLine()}
+                onAgent={focusAgent()}
+                onWorktree={() => void fetch(`${base}/worktree`, { method: "POST" }).catch(() => {})}
               />
               <For each={sections()} keyed={(block) => block.id}>
                 {(block) => (

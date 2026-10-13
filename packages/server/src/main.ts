@@ -36,8 +36,19 @@ const COMMENTS = /^\/api\/discussions\/([^/]+)\/([^/]+)\/comments(?:\/([^/]+))?$
 const PREVIEW = /^\/api\/preview\/(.+)$/;
 const SOURCE = /^\/api\/source\/(.+)$/;
 
+// The server listens only on this machine, but any page open in the browser
+// can send it a request, so whatever changes something is accepted only from
+// a page served here. A request with no origin comes from no page, such as
+// curl.
+function fromHere(request: IncomingMessage): boolean {
+  const origin = request.headers.origin;
+  if (request.method === "GET" || !origin) return true;
+  return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(origin).hostname);
+}
+
 async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${HOST}`);
+  if (!fromHere(request)) return send(response, 403, { error: "only a page served here may change anything" });
   const topic = TOPIC.exec(url.pathname);
   if (topic) {
     return handleTopic(request, response, decodeURIComponent(topic[1]), topic[2], topic[3] && decodeURIComponent(topic[3]));

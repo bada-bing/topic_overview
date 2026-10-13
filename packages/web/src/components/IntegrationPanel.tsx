@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 
 import type { Integration } from "@topic-overview/core";
 
@@ -9,13 +9,14 @@ export interface IntegrationState {
   url?: string;
 }
 
-// Each kind as the panel names it, short, since the name follows.
-const KINDS: Record<Integration["kind"], string> = {
-  "merge-request": "MR",
-  local: "process",
-  cluster: "cluster",
-  jenkins: "Jenkins",
-};
+// The kinds in the order their groups stand in the panel, each named as its
+// group's heading.
+const KINDS: [Integration["kind"], string][] = [
+  ["merge-request", "Merge requests"],
+  ["local", "Processes"],
+  ["cluster", "Deployments"],
+  ["jenkins", "Builds"],
+];
 
 // Whether the panel was left open, kept per browser; a page that cannot keep
 // it opens with the panel closed.
@@ -57,10 +58,11 @@ export interface ProcessControl {
 // What the discussion depends on outside its source, in a panel opened from
 // the bottom of the page when I want it, as wide as the page: the merge
 // requests the page lists under Links, then what the agent added, each with
-// the state its system reports, kept current while the page is open. What
-// the page says of one is its description, until the system says more. A
-// local process's name brings its window up, where its output is, and a
-// button starts it, or restarts it while it runs.
+// the state its system reports, kept current while the page is open. Each
+// kind is a group of its own, side by side, since each shows something else:
+// what the page says of a merge request is its description, until the system
+// says more. A local process's name brings its window up, where its output
+// is, and a button starts it, or restarts it while it runs.
 export function IntegrationPanel(props: { integrations: Integration[]; states: Map<string, IntegrationState>; processes?: ProcessControl }) {
   const [open, setOpen] = createSignal(wasOpen());
   const toggle = () => {
@@ -68,6 +70,11 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
     setOpen(next);
     keepOpen(next);
   };
+  const groups = createMemo(() =>
+    KINDS.map(([kind, heading]) => ({ kind, heading, integrations: props.integrations.filter((integration) => integration.kind === kind) })).filter(
+      (group) => group.integrations.length > 0,
+    ),
+  );
   return (
     <Show when={props.integrations.length > 0}>
       <button type="button" class={["integration-tab", { open: open() }]} onClick={toggle} aria-expanded={open() ? "true" : "false"}>
@@ -75,70 +82,97 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
       </button>
       <Show when={open()}>
         <section class="integration-panel">
-          <table>
-            <tbody>
-              <For each={props.integrations}>
-                {(integration) => {
-                  const state = () => props.states.get(integration.id);
-                  const name = integration.label ?? integration.reference;
-                  // The kind is shown in words until the icon has loaded, and
-                  // stays in words when it cannot.
-                  const [iconShown, setIconShown] = createSignal(false);
-                  const icon = () => iconOf(state()?.url ?? integration.reference);
-                  return (
-                    <tr title={integration.reference}>
-                      <td class="integration-kind" title={KINDS[integration.kind]}>
-                        <Show when={icon()}>
-                          {(src) => (
-                            <img
-                              class={["integration-icon", { shown: iconShown() }]}
-                              src={src()}
-                              alt=""
-                              onLoad={() => setIconShown(true)}
-                              onError={() => setIconShown(false)}
-                            />
-                          )}
-                        </Show>
-                        <Show when={!iconShown()}>{KINDS[integration.kind]}</Show>
-                      </td>
-                      <td class="integration-name">
-                        <Show
-                          when={integration.kind === "local" && props.processes}
-                          fallback={
-                            <Show when={state()?.url} fallback={name}>
-                              {(url) => (
-                                <a href={url()} target="_blank" rel="noreferrer">
-                                  {name}
-                                </a>
-                              )}
-                            </Show>
-                          }
-                        >
-                          {(processes) => (
-                            <button type="button" class="integration-window" title="Bring its window up" onClick={() => processes().focus(integration.id)}>
-                              {name}
-                            </button>
-                          )}
-                        </Show>
-                      </td>
-                      <td class={["integration-state", `integration-${(state()?.state ?? "unknown").replace(/\s+/g, "-")}`]}>
-                        {state()?.state ?? "…"}
-                      </td>
-                      <td class="integration-action">
-                        <Show when={integration.kind === "local" && props.processes}>
-                          {(processes) => <StartButton running={state()?.state === "running"} control={processes()} id={integration.id} />}
-                        </Show>
-                      </td>
-                      <td class="integration-detail">{state()?.detail ?? integration.detail ?? ""}</td>
-                    </tr>
-                  );
-                }}
-              </For>
-            </tbody>
-          </table>
+          <For each={groups()} keyed={(group) => group.kind}>
+            {(group) => (
+              <IntegrationGroup
+                heading={group().heading}
+                integrations={group().integrations}
+                states={props.states}
+                processes={group().kind === "local" ? props.processes : undefined}
+              />
+            )}
+          </For>
         </section>
       </Show>
     </Show>
+  );
+}
+
+// One kind's integrations under a heading carrying the icon of the system
+// they live on, when it has one that loads.
+function IntegrationGroup(props: {
+  heading: string;
+  integrations: Integration[];
+  states: Map<string, IntegrationState>;
+  processes?: ProcessControl;
+}) {
+  const [iconShown, setIconShown] = createSignal(false);
+  const icon = () => {
+    const first = props.integrations[0];
+    return iconOf(props.states.get(first.id)?.url ?? first.reference);
+  };
+  return (
+    <div class="integration-group">
+      <h3 class="integration-heading">
+        <Show when={icon()}>
+          {(src) => (
+            <img
+              class={["integration-icon", { shown: iconShown() }]}
+              src={src()}
+              alt=""
+              onLoad={() => setIconShown(true)}
+              onError={() => setIconShown(false)}
+            />
+          )}
+        </Show>
+        {props.heading}
+      </h3>
+      <table>
+        <tbody>
+          <For each={props.integrations} keyed={(integration) => integration.id}>
+            {(integration) => {
+              const state = () => props.states.get(integration().id);
+              const name = () => integration().label ?? integration().reference;
+              return (
+                <tr title={integration().reference}>
+                  <td class="integration-name">
+                    <Show
+                      when={props.processes}
+                      fallback={
+                        <Show when={state()?.url} fallback={name()}>
+                          {(url) => (
+                            <a href={url()} target="_blank" rel="noreferrer">
+                              {name()}
+                            </a>
+                          )}
+                        </Show>
+                      }
+                    >
+                      {(processes) => (
+                        <button type="button" class="integration-window" title="Bring its window up" onClick={() => processes().focus(integration().id)}>
+                          {name()}
+                        </button>
+                      )}
+                    </Show>
+                  </td>
+                  <td class={["integration-state", `integration-${(state()?.state ?? "unknown").replace(/\s+/g, "-")}`]}>
+                    {state()?.state ?? "…"}
+                  </td>
+                  <Show when={props.processes}>
+                    {(processes) => (
+                      <td class="integration-action">
+                        <StartButton running={state()?.state === "running"} control={processes()} id={integration().id} />
+                      </td>
+                    )}
+                  </Show>
+                  <td class="integration-detail">{state()?.detail ?? integration().detail ?? ""}</td>
+                </tr>
+              );
+            }}
+          </For>
+        </tbody>
+      </table>
+    </div>
   );
 }
 

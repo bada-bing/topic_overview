@@ -889,28 +889,45 @@ main [id] {
   font-size: 0.85rem;
 }
 
-.integration-panel table {
+/* One group per kind, side by side, wrapping when the page is narrow. */
+.integration-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 32px;
+}
+
+.integration-group {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+.integration-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.integration-group table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.integration-panel td {
+.integration-group td {
   padding: 4px 12px 4px 0;
   vertical-align: baseline;
   border-bottom: 1px solid var(--rule);
 }
 
-.integration-kind {
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-/* A system's icon, shown once it has loaded, in place of the kind's name. */
+/* A system's icon, shown once it has loaded. */
 .integration-icon {
   display: none;
   width: 16px;
   height: 16px;
-  vertical-align: -3px;
 }
 
 .integration-icon.shown {

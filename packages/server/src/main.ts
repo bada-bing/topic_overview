@@ -7,6 +7,7 @@ import { Store, StoreError, openOnLogseqPage } from "@topic-overview/core";
 
 import { Changes } from "./changes.ts";
 import { GitlabError, GitlabUnreachable, mergeRequestState } from "./gitlab.ts";
+import { iconOf } from "./icons.ts";
 import { integrationStates } from "./integrations.ts";
 
 import { KbError, previewKbPage, readKbPage } from "./kb.ts";
@@ -76,6 +77,12 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
   const comments = COMMENTS.exec(url.pathname);
   if (comments) return handleComments(request, response, comments);
+  if (request.method === "GET" && url.pathname === "/api/icon") {
+    const icon = await iconOf(url.searchParams.get("origin") ?? "");
+    response.writeHead(200, { "content-type": icon.type, "cache-control": "max-age=86400" });
+    response.end(icon.body);
+    return;
+  }
   if (request.method === "GET" && url.pathname === "/api/merge-request") {
     return send(response, 200, await mergeRequestState(url.searchParams.get("url") ?? ""));
   }

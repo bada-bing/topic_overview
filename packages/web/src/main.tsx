@@ -9,7 +9,7 @@ import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 import { AttachmentList } from "./components/AttachmentList.tsx";
 import { BesideAsset, BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
-import { type IntegrationState, IntegrationList } from "./components/IntegrationList.tsx";
+import { type IntegrationState, IntegrationPanel } from "./components/IntegrationPanel.tsx";
 import { Metadata } from "./components/Metadata.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
@@ -485,7 +485,6 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                 />
               </div>
             </Show>
-            <IntegrationList integrations={view().discussion.integrations ?? []} states={states()} />
             <Outline
               entries={entries()}
               current={innermost(foldTree(), unfolded())}
@@ -543,6 +542,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
           </Show>
         </div>
+        <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} />
         </CommentsContext>
         </OpenAssetContext>
         </OpenPageContext>

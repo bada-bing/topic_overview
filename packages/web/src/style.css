@@ -852,40 +852,84 @@ main [id] {
   text-decoration: line-through;
 }
 
-.integration-list {
-  font-size: 0.85em;
+/* The integrations open from the bottom of the page, as a panel as wide as
+   the page, from a tab at its bottom-right edge. */
+.integration-tab {
+  position: fixed;
+  right: 16px;
+  bottom: 0;
+  z-index: 40;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  color: var(--muted);
+  background: var(--code-background);
+  border: 1px solid var(--rule);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+}
+
+.integration-tab.open {
+  bottom: 30vh;
+}
+
+.integration-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  height: 30vh;
+  overflow: auto;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  background: var(--code-background);
+  border-top: 1px solid var(--rule);
+  font-size: 0.85rem;
+}
+
+.integration-panel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.integration-panel td {
+  padding: 4px 12px 4px 0;
+  vertical-align: baseline;
   border-bottom: 1px solid var(--rule);
-  padding-bottom: 8px;
-  margin-bottom: 8px;
 }
 
-.integration-list h3 {
-  font-size: 1em;
-  margin: 0 0 6px;
+.integration-kind {
+  color: var(--muted);
+  white-space: nowrap;
 }
 
-.integration-entry {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  padding: 3px 6px;
+/* A system's icon, shown once it has loaded, in place of the kind's name. */
+.integration-icon {
+  display: none;
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+
+.integration-icon.shown {
+  display: inline-block;
 }
 
 .integration-name {
-  flex: 1;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .integration-state {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85em;
+  white-space: nowrap;
   color: var(--muted);
 }
 
 .integration-detail {
-  display: block;
+  width: 100%;
   color: var(--muted);
-  font-size: 0.9em;
 }
 
 .integration-running,
@@ -897,7 +941,13 @@ main [id] {
 .integration-failure,
 .integration-aborted,
 .integration-unavailable,
+.integration-closed,
 .integration-exited { color: #cf222e; }
+.integration-open { color: var(--link); }
+.integration-merged { color: var(--done); }
+.integration-draft { color: var(--now); }
+.integration-not-reachable,
+.integration-not-asked { font-style: italic; }
 
 .block-image {
   display: block;

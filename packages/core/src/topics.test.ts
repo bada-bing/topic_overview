@@ -31,6 +31,10 @@ beforeEach(async () => {
   await mkdir(join(kb, "pages"), { recursive: true });
   await writeFile(join(kb, "pages", "KEY_1-grow_vegetables.md"), PAGE);
   git(kb, "init", "--quiet", "--initial-branch=main");
+  // An identity of the repository's own, which its worktrees share, so no
+  // commit depends on one git would guess from the machine.
+  git(kb, "config", "user.name", "t");
+  git(kb, "config", "user.email", "t@t");
   git(kb, "add", ".");
   git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "KEY_1: Open Task");
   topics = new Topics(kb, join(home, "worktrees"));

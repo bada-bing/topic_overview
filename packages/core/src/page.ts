@@ -2,6 +2,8 @@
 // conventions. A block is a bullet; its id is an `id::` property on the line
 // after it, and a relation to another block is written `((id))`.
 
+import type { Integration } from "./discussion.ts";
+
 export type BlockKind = "heading" | "block";
 
 export interface Block {
@@ -198,4 +200,29 @@ export function pageLinks(page: Page): Set<string> {
     for (const match of prose.matchAll(/\[\[([^\]\n]+)\]\]/g)) links.add(match[1]);
   }
   return links;
+}
+
+// The merge requests a page lists under its Links heading, as integrations:
+// each a link to `…/-/merge_requests/<number>`, named by its text without a
+// leading `GitLab MR:`, and described by what follows it after a dash. A merge
+// request linked elsewhere on the page is context, not something the topic
+// depends on, so it is left out.
+export function linkedMergeRequests(page: Page): Integration[] {
+  const links = [...walk(page.blocks)].find((block) => block.kind === "heading" && block.text.trim() === "Links");
+  if (!links) return [];
+  const found: Integration[] = [];
+  for (const block of walk(links.children)) {
+    for (const match of block.text.matchAll(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+\/-\/merge_requests\/\d+)\/?\)(?:\s*[—–-]\s*([^\n]+))?/g)) {
+      const [, text, url, detail] = match;
+      if (found.some((known) => known.reference === url)) continue;
+      found.push({
+        id: `merge-request:${url}`,
+        kind: "merge-request",
+        reference: url,
+        label: text.replace(/^GitLab MR:\s*/i, ""),
+        ...(detail ? { detail: detail.trim() } : {}),
+      });
+    }
+  }
+  return found;
 }

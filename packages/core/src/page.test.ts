@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { labels, pageLinks, parsePage, relations, sourceProblems } from "./page.ts";
+import { labels, linkedMergeRequests, pageLinks, parsePage, relations, sourceProblems } from "./page.ts";
 
 const PAGE = parsePage(`- G1: Grow enough vegetables
   id:: b1
@@ -33,5 +33,31 @@ test("a reference to a block not on the page is a problem, named by its block", 
   const page = parsePage("- Points at ((b2))\n  id:: b1\n- Here\n  id:: b2\n- Points at ((gone))\n  id:: b3\n");
   assert.deepEqual(sourceProblems(page), [
     { block: "b3", excerpt: "Points at ((gone))", reason: "references ((gone)), which is not on the page" },
+  ]);
+});
+
+test("the merge requests under Links are the page's integrations, named and described as written", () => {
+  const page = parsePage(`- ## Context
+	- ### Links
+		- [Jira: WFC-1](https://jira.example.com/browse/WFC-1)
+		- [GitLab MR: ui-gateway !1205](https://gitlab.example.com/wcol/ui-gateway/-/merge_requests/1205) — report endpoint and templates
+		- [ui-gateway !1206](https://gitlab.example.com/wcol/ui-gateway/-/merge_requests/1206)
+- ## Documentation
+	- [GitLab MR: other !1](https://gitlab.example.com/x/other/-/merge_requests/1) — context only
+`);
+  assert.deepEqual(linkedMergeRequests(page), [
+    {
+      id: "merge-request:https://gitlab.example.com/wcol/ui-gateway/-/merge_requests/1205",
+      kind: "merge-request",
+      reference: "https://gitlab.example.com/wcol/ui-gateway/-/merge_requests/1205",
+      label: "ui-gateway !1205",
+      detail: "report endpoint and templates",
+    },
+    {
+      id: "merge-request:https://gitlab.example.com/wcol/ui-gateway/-/merge_requests/1206",
+      kind: "merge-request",
+      reference: "https://gitlab.example.com/wcol/ui-gateway/-/merge_requests/1206",
+      label: "ui-gateway !1206",
+    },
   ]);
 });

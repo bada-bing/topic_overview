@@ -1,10 +1,13 @@
 // The state of a discussion's integrations, asked of the system each names:
-// tmux for a local process, kubectl for a deployment, Jenkins' API for a job.
+// GitLab for a merge request, tmux for a local process, kubectl for a
+// deployment, Jenkins' API for a job.
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import type { Integration } from "@topic-overview/core";
+
+import { GitlabError, mergeRequestState } from "./gitlab.ts";
 
 const run = promisify(execFile);
 
@@ -13,6 +16,19 @@ export interface IntegrationState {
   state: string; // running, exited, not started, unknown
   detail?: string;
   url?: string; // where to look at it, such as a build in Jenkins
+}
+
+// A merge request is asked of GitLab, on the hosts TOPIC_OVERVIEW_GITLAB_HOSTS
+// lists; an open one that is a draft says so. What the page says it does
+// stays its detail, and a GitLab that cannot be asked says so in the state.
+async function mergeRequest(integration: Integration): Promise<IntegrationState> {
+  const shown = { id: integration.id, url: integration.reference, ...(integration.detail ? { detail: integration.detail } : {}) };
+  try {
+    const { state, draft } = await mergeRequestState(integration.reference);
+    return { ...shown, state: state === "opened" ? (draft ? "draft" : "open") : state };
+  } catch (failure) {
+    return { ...shown, state: failure instanceof GitlabError ? "not asked" : "not reachable" };
+  }
 }
 
 // A local integration is a process of the process manager, named
@@ -131,14 +147,17 @@ async function jenkinsState(integration: Integration): Promise<IntegrationState>
 }
 
 // How often each kind is asked while a page is open: local processes are
-// cheap, a cluster is asked over the network.
+// cheap, a cluster is asked over the network, and GitLab's answer is kept
+// for a minute.
 export const INTERVALS: Record<Integration["kind"], number> = {
+  "merge-request": 60_000,
   local: 5_000,
   cluster: 30_000,
   jenkins: 60_000,
 };
 
 export async function integrationState(integration: Integration): Promise<IntegrationState> {
+  if (integration.kind === "merge-request") return mergeRequest(integration);
   if (integration.kind === "local") return localState(integration);
   if (integration.kind === "cluster") return clusterState(integration);
   return jenkinsState(integration);

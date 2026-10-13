@@ -31,9 +31,10 @@ export function stateText(discussion: { closed: string | null; resolution?: Reso
   return discussion.resolution ? `closed (${RESOLUTIONS[discussion.resolution]})` : "closed";
 }
 
-// Something a discussion depends on outside its source, added by the agent,
-// named after the system that is asked about it.
-export const INTEGRATION_KINDS = ["local", "cluster", "jenkins"] as const;
+// Something a discussion depends on outside its source, named after the
+// system that is asked about it. A merge request is read off the page's
+// Links; the others are added by the agent.
+export const INTEGRATION_KINDS = ["merge-request", "local", "cluster", "jenkins"] as const;
 export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 
 export interface Integration {
@@ -41,6 +42,7 @@ export interface Integration {
   kind: IntegrationKind;
   reference: string; // what the system knows it by, such as project:process
   label?: string;
+  detail?: string; // what the page says of it, such as what a merge request does
 }
 
 export interface Discussion {

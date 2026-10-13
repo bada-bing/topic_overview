@@ -16,9 +16,20 @@ import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, extname, join } from "node:path";
 
-import { type DiscussionView, StoreError, type Topic, Topics, numberByPlace, pageLinks, parsePage, sourceProblems } from "@topic-overview/core";
+import {
+  type DiscussionView,
+  type Integration,
+  StoreError,
+  type Topic,
+  Topics,
+  linkedMergeRequests,
+  numberByPlace,
+  pageLinks,
+  parsePage,
+  sourceProblems,
+} from "@topic-overview/core";
 
-import { integrationStates } from "./integrations.ts";
+import { INTERVALS, integrationState, integrationStates } from "./integrations.ts";
 
 export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|worktree)(?:\/([^/]+))?)?$/;
 
@@ -86,11 +97,17 @@ export async function handleTopic(
   if (verb === "events") return subscribe(response, key);
   if (verb === "assets") return sendAsset(response, key, file);
   if (verb === "integrations") {
-    const topic = await store().read(key);
-    return send(response, 200, await integrationStates(topic.integrations));
+    const { topic, text } = await store().source(key);
+    return send(response, 200, await integrationStates(integrationsOf(topic, text)));
   }
   const { topic, text } = await store().source(key);
   send(response, 200, { ...view(topic, text), conflict: await store().conflict(key) });
+}
+
+// What a discussion depends on outside its source: the merge requests its
+// page lists under Links, then the integrations the agent added.
+function integrationsOf(topic: Topic, text: string): Integration[] {
+  return [...linkedMergeRequests(parsePage(text)), ...topic.integrations];
 }
 
 // The view the page already knows, with the page converted in memory: the
@@ -108,7 +125,7 @@ function view(topic: Topic, text: string): DiscussionView {
       closed: null,
       version: 1,
       sessions: topic.session ? [topic.session] : [],
-      integrations: topic.integrations,
+      integrations: integrationsOf(topic, text),
       annotations: [],
     },
     page,
@@ -231,10 +248,29 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   check(merge)();
   const agentPoll = setInterval(check(askAgent), AGENT_INTERVAL);
   const mainPoll = setInterval(check(merge), MAIN_INTERVAL);
+  // The integrations are read anew on every round, so a merge request added
+  // to Links, or one the agent adds, is watched from then on. Each kind is
+  // asked as often as INTERVALS says, and a change of state goes to the
+  // pages' Integrations widget.
+  const last = new Map<string, { state: string; detail?: string; at: number }>();
+  const integrations = async () => {
+    const { topic, text } = await store().source(key);
+    const now = Date.now();
+    for (const integration of integrationsOf(topic, text)) {
+      const before = last.get(integration.id);
+      if (before && now - before.at < INTERVALS[integration.kind]) continue;
+      const state = await integrationState(integration);
+      last.set(integration.id, { state: state.state, detail: state.detail, at: now });
+      if (!before || before.state !== state.state || before.detail !== state.detail) tell(watch, { kind: "integration", state });
+    }
+  };
+  check(integrations)();
+  const integrationPoll = setInterval(check(integrations), INTERVALS.local);
   watch.stop = () => {
     clearTimeout(timer);
     clearInterval(agentPoll);
     clearInterval(mainPoll);
+    clearInterval(integrationPoll);
     watcher.close();
     stateWatcher.close();
   };

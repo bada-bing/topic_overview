@@ -1,24 +1,25 @@
-// topic integration add <source> <kind> <reference> [--label <text>] [--session <id>]
-// topic integration remove <source> <id> [--session <id>]
-// What the open discussion of a source depends on outside it: a local
-// process, a deployment in a cluster, or a Jenkins job.
+// topic integration add <key> <local|cluster|jenkins> <reference> [--label <text>]
+// topic integration remove <key> <id>
+// What a discussion depends on outside its source, as the agent or I decide:
+// a local process, `<project>:<process>`; a deployment in a cluster,
+// `context/namespace/deployment`; or a Jenkins build, `job#number`. The
+// view shows each with its state.
 
-import { INTEGRATION_KINDS } from "@topic-overview/core";
+import { Topics } from "@topic-overview/core";
 
-import { type Context, need, openDiscussion } from "../context.ts";
+import { type Context, need } from "../context.ts";
 
-const USAGE = `topic integration add <source> <${INTEGRATION_KINDS.join("|")}> <reference> [--label <text>] | remove <source> <id>`;
+const USAGE = "topic integration add <key> <local|cluster|jenkins> <reference> [--label <text>] | remove <key> <id>";
 
-export async function integration([verb, source, ...rest]: string[], context: Context): Promise<void> {
-  const ref = await openDiscussion(context, need(source, USAGE));
+export async function integration([verb, key, ...rest]: string[], context: Context): Promise<void> {
   if (verb === "add") {
     const [kind, reference] = rest;
-    const added = await context.store.addIntegration(ref, need(kind, USAGE), need(reference, USAGE), context.label, context.session);
-    console.log(`${added.id}: ${added.kind} ${added.reference}`);
+    const added = await new Topics().addIntegration(need(key, USAGE), need(kind, USAGE), need(reference, USAGE), context.label);
+    console.log(added.id);
     return;
   }
   if (verb === "remove") {
-    await context.store.removeIntegration(ref, need(rest[0], USAGE), context.session);
+    await new Topics().removeIntegration(need(key, USAGE), need(rest[0], USAGE));
     console.log(`removed ${rest[0]}`);
     return;
   }

@@ -215,3 +215,22 @@ test("asking without a Claude session to ask is refused, and nothing is kept", a
   assert.equal((await topics.read("KEY_1")).questions, undefined);
   assert.equal(await topics.head("KEY_1"), head);
 });
+
+test("an integration is added once, by its kind and reference, and removed by its id", async () => {
+  await topics.open("KEY_1");
+  const added = await topics.addIntegration("KEY_1", "local", "garden:dev:frontend", "the beds");
+  assert.deepEqual(added, { id: "local:garden:dev:frontend", kind: "local", reference: "garden:dev:frontend", label: "the beds" });
+  await topics.addIntegration("KEY_1", "local", "garden:dev:frontend");
+  assert.deepEqual((await topics.read("KEY_1")).integrations, [added]);
+  await topics.removeIntegration("KEY_1", added.id);
+  assert.deepEqual((await topics.read("KEY_1")).integrations, []);
+  await assert.rejects(topics.removeIntegration("KEY_1", added.id), /has no integration/);
+});
+
+test("a merge request, an unknown kind and a process without its project are refused", async () => {
+  await topics.open("KEY_1");
+  await assert.rejects(topics.addIntegration("KEY_1", "merge-request", "https://host/-/merge_requests/1"), /listed under Links/);
+  await assert.rejects(topics.addIntegration("KEY_1", "printer", "x"), /local, cluster or jenkins/);
+  await assert.rejects(topics.addIntegration("KEY_1", "local", "frontend"), /<project>:<process>/);
+  assert.deepEqual((await topics.read("KEY_1")).integrations, []);
+});

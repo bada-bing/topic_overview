@@ -5,7 +5,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { Integration } from "@topic-overview/core";
+import { type Integration, processAddress, processState } from "@topic-overview/core";
 
 import { GitlabError, mergeRequestState } from "./gitlab.ts";
 
@@ -13,7 +13,7 @@ const run = promisify(execFile);
 
 export interface IntegrationState {
   id: string;
-  state: string; // running, exited, not started, unknown
+  state: string; // such as running, exited, not started, unknown
   detail?: string;
   url?: string; // where to look at it, such as a build in Jenkins
 }
@@ -32,15 +32,12 @@ async function mergeRequest(integration: Integration): Promise<IntegrationState>
 }
 
 // A local integration is a process of the process manager, named
-// project:process. It runs in a tmux window of that name, whose pane the
-// process manager marks running or exited.
+// project:process. What it printed is read in its window.
 async function localState(integration: Integration): Promise<IntegrationState> {
   try {
-    const { stdout } = await run("tmux", ["display-message", "-p", "-t", integration.reference, "#{@proc_state}"]);
-    const state = stdout.trim();
-    return { id: integration.id, state: state || "not started" };
-  } catch {
-    return { id: integration.id, state: "not started", detail: `no window ${integration.reference}` };
+    return { id: integration.id, state: await processState(processAddress(integration.reference)) };
+  } catch (failure) {
+    return { id: integration.id, state: "unknown", detail: (failure as Error).message };
   }
 }
 

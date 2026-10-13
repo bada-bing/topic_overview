@@ -15,9 +15,10 @@ import { promisify } from "node:util";
 
 import { randomUUID } from "node:crypto";
 
-import type { Integration, Session } from "./discussion.ts";
+import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
+import { processAddress } from "./process.ts";
 import type { Question } from "./question.ts";
 import { StoreError } from "./store.ts";
 
@@ -391,6 +392,30 @@ export class Topics {
       await run("tmux", ["new-window", "-d", "-t", `=${session}:`, "-n", name, "-c", this.worktree(key)]);
     }
     await raise(`=${session}:${name}`);
+  }
+
+  // Adds what the discussion depends on outside its source, as the agent or
+  // I decide: a local process, a deployment or a Jenkins build. Its id is
+  // its kind and reference, so the same one is not added twice. A merge
+  // request is read off the page's Links instead, never added.
+  async addIntegration(key: string, kind: string, reference: string, label?: string): Promise<Integration> {
+    if (!(INTEGRATION_KINDS as readonly string[]).includes(kind) || kind === "merge-request") {
+      throw new StoreError("an integration is local, cluster or jenkins; a merge request is listed under Links");
+    }
+    if (kind === "local") processAddress(reference);
+    const topic = await this.read(key);
+    const id = `${kind}:${reference}`;
+    const known = topic.integrations.find((integration) => integration.id === id);
+    if (known) return known;
+    const added: Integration = { id, kind: kind as IntegrationKind, reference, ...(label ? { label } : {}) };
+    await this.write({ ...topic, integrations: [...topic.integrations, added] });
+    return added;
+  }
+
+  async removeIntegration(key: string, id: string): Promise<void> {
+    const topic = await this.read(key);
+    if (!topic.integrations.some((integration) => integration.id === id)) throw new StoreError(`${key} has no integration ${id}`);
+    await this.write({ ...topic, integrations: topic.integrations.filter((integration) => integration.id !== id) });
   }
 
   // A question I am done with. While the agent works, nothing is dismissed,

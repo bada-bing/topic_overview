@@ -927,6 +927,42 @@ main [id] {
   color: var(--muted);
 }
 
+/* A local process's name brings its window up. */
+.integration-window {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--link);
+}
+
+.integration-action {
+  white-space: nowrap;
+}
+
+.integration-start {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 1px 8px;
+  color: var(--text);
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.integration-start:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.integration-start.failed {
+  border-color: #cf222e;
+}
+
+.integration-starting { color: var(--now); }
+
 .integration-detail {
   width: 100%;
   color: var(--muted);

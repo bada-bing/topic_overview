@@ -331,6 +331,30 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     },
   };
 
+  // The local processes the discussion lists: their windows are brought up,
+  // and they are started or restarted, while the agent is not working.
+  const processes = props.live
+    ? {
+        focus: (id: string) => {
+          fetch(`${base}/integrations/${encodeURIComponent(id)}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "focus" }),
+          }).catch(() => {});
+        },
+        start: async (id: string) => {
+          await readAnswer(
+            await fetch(`${base}/integrations/${encodeURIComponent(id)}`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ action: "start" }),
+            }),
+          );
+        },
+        blocked: () => (agent() === "busy" ? "The agent is working; start it once it is done" : undefined),
+      }
+    : undefined;
+
   // What changed outside while the page is open, told by the server. Once
   // something has, the page allows nothing but reloading.
   const [outsideChange, setOutsideChange] = createSignal<BlockingChange | undefined>(undefined);
@@ -542,7 +566,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
           </Show>
         </div>
-        <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} />
+        <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} processes={processes} />
         </CommentsContext>
         </OpenAssetContext>
         </OpenPageContext>

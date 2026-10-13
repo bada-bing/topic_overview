@@ -18,7 +18,7 @@ import { randomUUID } from "node:crypto";
 import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
-import { processAddress } from "./process.ts";
+import { processAddress, processWindow, startProcess } from "./process.ts";
 import type { Question } from "./question.ts";
 import { StoreError } from "./store.ts";
 
@@ -416,6 +416,29 @@ export class Topics {
     const topic = await this.read(key);
     if (!topic.integrations.some((integration) => integration.id === id)) throw new StoreError(`${key} has no integration ${id}`);
     await this.write({ ...topic, integrations: topic.integrations.filter((integration) => integration.id !== id) });
+  }
+
+  // Brings a local integration's window up in the terminal.
+  async focusProcess(key: string, id: string): Promise<void> {
+    const window = await processWindow(await this.processOf(key, id));
+    if (!window) throw new StoreError(`${id.slice("local:".length)} has no window; start it first`);
+    await raise(window);
+  }
+
+  // Starts a local integration's process, or restarts it when it runs. While
+  // the agent works, nothing is started, since it may be using the process.
+  async startProcess(key: string, id: string): Promise<string> {
+    const address = await this.processOf(key, id);
+    if ((await this.agentState(key)) === "busy") throw new StoreError("the agent is working; start it once it is done");
+    return startProcess(address);
+  }
+
+  // Only a process the discussion lists is reached, never one named by the
+  // caller.
+  private async processOf(key: string, id: string) {
+    const integration = (await this.read(key)).integrations.find((known) => known.id === id);
+    if (integration?.kind !== "local") throw new StoreError(`${key} has no local integration ${id}`);
+    return processAddress(integration.reference);
   }
 
   // A question I am done with. While the agent works, nothing is dismissed,

@@ -234,3 +234,9 @@ test("a merge request, an unknown kind and a process without its project are ref
   await assert.rejects(topics.addIntegration("KEY_1", "local", "frontend"), /<project>:<process>/);
   assert.deepEqual((await topics.read("KEY_1")).integrations, []);
 });
+
+test("only a process the discussion lists is started or brought up", async () => {
+  await topics.open("KEY_1");
+  await assert.rejects(topics.startProcess("KEY_1", "local:garden:server"), /no local integration/);
+  await assert.rejects(topics.focusProcess("KEY_1", "local:garden:server"), /no local integration/);
+});

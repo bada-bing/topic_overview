@@ -9,7 +9,8 @@
 // the agent about a block, `…/questions/<id>` posted to ask further and
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
 // up in the terminal; `…/worktree` posted to bring up a window working in the
-// discussion's worktree.
+// discussion's worktree; `…/integrations/<id>` posted to bring a local
+// process's window up, or to start or restart it.
 
 import { watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -88,6 +89,15 @@ export async function handleTopic(
   if (verb === "agent" && request.method === "POST") {
     await store().focusAgent(key);
     return send(response, 200, {});
+  }
+  if (verb === "integrations" && file && request.method === "POST") {
+    const { action } = await readJson<{ action?: unknown }>(request);
+    if (action === "focus") {
+      await store().focusProcess(key, file);
+      return send(response, 200, {});
+    }
+    if (action === "start") return send(response, 200, { said: await store().startProcess(key, file) });
+    throw new StoreError("an integration is focused or started");
   }
   if (verb === "worktree" && request.method === "POST") {
     await store().focusWorktree(key);

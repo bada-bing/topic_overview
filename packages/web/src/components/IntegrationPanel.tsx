@@ -46,12 +46,22 @@ function keepOpen(open: boolean): void {
   }
 }
 
+// What the page can do with a local process: bring its window up, and start
+// or restart it, which is refused with a reason while the agent works.
+export interface ProcessControl {
+  focus: (id: string) => void;
+  start: (id: string) => Promise<void>;
+  blocked: () => string | undefined;
+}
+
 // What the discussion depends on outside its source, in a panel opened from
 // the bottom of the page when I want it, as wide as the page: the merge
 // requests the page lists under Links, then what the agent added, each with
 // the state its system reports, kept current while the page is open. What
-// the page says of one is its description, until the system says more.
-export function IntegrationPanel(props: { integrations: Integration[]; states: Map<string, IntegrationState> }) {
+// the page says of one is its description, until the system says more. A
+// local process's name brings its window up, where its output is, and a
+// button starts it, or restarts it while it runs.
+export function IntegrationPanel(props: { integrations: Integration[]; states: Map<string, IntegrationState>; processes?: ProcessControl }) {
   const [open, setOpen] = createSignal(wasOpen());
   const toggle = () => {
     const next = !open();
@@ -92,16 +102,32 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
                         <Show when={!iconShown()}>{KINDS[integration.kind]}</Show>
                       </td>
                       <td class="integration-name">
-                        <Show when={state()?.url} fallback={name}>
-                          {(url) => (
-                            <a href={url()} target="_blank" rel="noreferrer">
+                        <Show
+                          when={integration.kind === "local" && props.processes}
+                          fallback={
+                            <Show when={state()?.url} fallback={name}>
+                              {(url) => (
+                                <a href={url()} target="_blank" rel="noreferrer">
+                                  {name}
+                                </a>
+                              )}
+                            </Show>
+                          }
+                        >
+                          {(processes) => (
+                            <button type="button" class="integration-window" title="Bring its window up" onClick={() => processes().focus(integration.id)}>
                               {name}
-                            </a>
+                            </button>
                           )}
                         </Show>
                       </td>
                       <td class={["integration-state", `integration-${(state()?.state ?? "unknown").replace(/\s+/g, "-")}`]}>
                         {state()?.state ?? "…"}
+                      </td>
+                      <td class="integration-action">
+                        <Show when={integration.kind === "local" && props.processes}>
+                          {(processes) => <StartButton running={state()?.state === "running"} control={processes()} id={integration.id} />}
+                        </Show>
                       </td>
                       <td class="integration-detail">{state()?.detail ?? integration.detail ?? ""}</td>
                     </tr>
@@ -113,5 +139,31 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
         </section>
       </Show>
     </Show>
+  );
+}
+
+// Starts a process, or restarts it while it runs. What proc said when it
+// failed shows on the button's title until the next try.
+function StartButton(props: { running: boolean; control: ProcessControl; id: string }) {
+  const [pending, setPending] = createSignal(false);
+  const [failure, setFailure] = createSignal<string | undefined>(undefined);
+  const start = () => {
+    setPending(true);
+    setFailure(undefined);
+    props.control
+      .start(props.id)
+      .catch((error: Error) => setFailure(error.message))
+      .finally(() => setPending(false));
+  };
+  return (
+    <button
+      type="button"
+      class={["integration-start", { failed: failure() !== undefined }]}
+      disabled={pending() || props.control.blocked() !== undefined}
+      title={failure() ?? props.control.blocked() ?? (props.running ? "Restart it" : "Start it")}
+      onClick={start}
+    >
+      {pending() ? "…" : props.running ? "Restart" : "Start"}
+    </button>
   );
 }

@@ -331,26 +331,23 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     },
   };
 
-  // The local processes the discussion lists: their windows are brought up,
-  // and they are started or restarted, while the agent is not working.
-  const processes = props.live
+  // What runs, as the discussion lists it: a local process's window or a
+  // page's tab is brought up, a process is started or restarted while the
+  // agent is not working, and a page's tab is opened again.
+  const act = async (id: string, action: string) => {
+    await readAnswer(
+      await fetch(`${base}/integrations/${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action }),
+      }),
+    );
+  };
+  const control = props.live
     ? {
-        focus: (id: string) => {
-          fetch(`${base}/integrations/${encodeURIComponent(id)}`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ action: "focus" }),
-          }).catch(() => {});
-        },
-        start: async (id: string) => {
-          await readAnswer(
-            await fetch(`${base}/integrations/${encodeURIComponent(id)}`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ action: "start" }),
-            }),
-          );
-        },
+        focus: (id: string) => act(id, "focus"),
+        start: (id: string) => act(id, "start"),
+        open: (id: string) => act(id, "open"),
         blocked: () => (agent() === "busy" ? "The agent is working; start it once it is done" : undefined),
       }
     : undefined;
@@ -566,7 +563,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
           </Show>
         </div>
-        <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} processes={processes} />
+        <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} control={control} />
         </CommentsContext>
         </OpenAssetContext>
         </OpenPageContext>

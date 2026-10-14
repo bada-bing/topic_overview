@@ -1013,6 +1013,8 @@ main [id] {
 .integration-unavailable,
 .integration-closed,
 .integration-exited { color: #cf222e; }
+.integration-not-open,
+.integration-not-running { font-style: italic; }
 .integration-open { color: var(--link); }
 .integration-merged { color: var(--done); }
 .integration-draft { color: var(--now); }

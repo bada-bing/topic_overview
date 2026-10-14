@@ -8,12 +8,13 @@ export interface IntegrationState {
   detail?: string;
   url?: string;
   environment?: string; // where it runs, such as DEV for a deployment
+  name?: string; // what the system calls it, such as a page's title
 }
 
 // The kinds as the panel shows them: two columns, each answering one
 // question. The left one is the change's way through review and CI, the
-// right one where it runs, locally or in a cluster. Each kind is a group
-// under its heading.
+// right one where it runs, locally, in a browser or in a cluster. Each kind
+// is a group under its heading.
 const COLUMNS: [Integration["kind"], string][][] = [
   [
     ["merge-request", "Merge requests"],
@@ -21,6 +22,7 @@ const COLUMNS: [Integration["kind"], string][][] = [
   ],
   [
     ["local", "Processes"],
+    ["browser", "Pages"],
     ["cluster", "Deployments"],
   ],
 ];
@@ -54,11 +56,13 @@ function keepOpen(open: boolean): void {
   }
 }
 
-// What the page can do with a local process: bring its window up, and start
-// or restart it, which is refused with a reason while the agent works.
-export interface ProcessControl {
-  focus: (id: string) => void;
+// What the page can do with what runs: bring a local process's window or a
+// page's tab up, start or restart a process, which is refused with a reason
+// while the agent works, and open a page's tab again.
+export interface IntegrationControl {
+  focus: (id: string) => Promise<void>;
   start: (id: string) => Promise<void>;
+  open: (id: string) => Promise<void>;
   blocked: () => string | undefined;
 }
 
@@ -70,7 +74,7 @@ export interface ProcessControl {
 // what the page says of a merge request is its description, until the system
 // says more. A local process's name brings its window up, where its output
 // is, and a button starts it, or restarts it while it runs.
-export function IntegrationPanel(props: { integrations: Integration[]; states: Map<string, IntegrationState>; processes?: ProcessControl }) {
+export function IntegrationPanel(props: { integrations: Integration[]; states: Map<string, IntegrationState>; control?: IntegrationControl }) {
   const [open, setOpen] = createSignal(wasOpen());
   const toggle = () => {
     const next = !open();
@@ -102,7 +106,8 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
                         heading={group().heading}
                         integrations={group().integrations}
                         states={props.states}
-                        processes={group().kind === "local" ? props.processes : undefined}
+                        kind={group().kind}
+                        control={group().kind === "local" || group().kind === "browser" ? props.control : undefined}
                       />
                     )}
                   </For>
@@ -122,7 +127,8 @@ function IntegrationGroup(props: {
   heading: string;
   integrations: Integration[];
   states: Map<string, IntegrationState>;
-  processes?: ProcessControl;
+  kind: Integration["kind"];
+  control?: IntegrationControl;
 }) {
   const [iconShown, setIconShown] = createSignal(false);
   // A local process's icon is the terminal app's, where its window is
@@ -130,6 +136,7 @@ function IntegrationGroup(props: {
   const icon = () => {
     const first = props.integrations[0];
     if (first.kind === "local") return "/api/icon?app=terminal";
+    if (first.kind === "browser") return undefined;
     return iconOf(props.states.get(first.id)?.url ?? first.reference);
   };
   return (
@@ -153,12 +160,13 @@ function IntegrationGroup(props: {
           <For each={props.integrations} keyed={(integration) => integration.id}>
             {(integration) => {
               const state = () => props.states.get(integration().id);
-              const name = () => integration().label ?? integration().reference;
+              const name = () => integration().label ?? state()?.name ?? integration().reference;
+              const closed = () => ["not open", "not running"].includes(state()?.state ?? "");
               return (
                 <tr title={integration().reference}>
                   <td class="integration-name">
                     <Show
-                      when={props.processes}
+                      when={props.control}
                       fallback={
                         <Show when={state()?.url} fallback={name()}>
                           {(url) => (
@@ -169,8 +177,8 @@ function IntegrationGroup(props: {
                         </Show>
                       }
                     >
-                      {(processes) => (
-                        <button type="button" class="integration-window" title="Bring its window up" onClick={() => processes().focus(integration().id)}>
+                      {(control) => (
+                        <button type="button" class="integration-window" title="Bring it up" onClick={() => void control().focus(integration().id).catch(() => {})}>
                           {name()}
                         </button>
                       )}
@@ -186,10 +194,19 @@ function IntegrationGroup(props: {
                   <td class={["integration-state", `integration-${(state()?.state ?? "unknown").replace(/\s+/g, "-")}`]}>
                     {state()?.state ?? "…"}
                   </td>
-                  <Show when={props.processes}>
-                    {(processes) => (
+                  <Show when={props.control}>
+                    {(control) => (
                       <td class="integration-action">
-                        <StartButton running={state()?.state === "running"} control={processes()} id={integration().id} />
+                        <Show when={props.kind === "local"}>
+                          <ActionButton
+                            label={state()?.state === "running" ? "Restart" : "Start"}
+                            run={() => control().start(integration().id)}
+                            blocked={control().blocked}
+                          />
+                        </Show>
+                        <Show when={props.kind === "browser" && closed()}>
+                          <ActionButton label="Open" run={() => control().open(integration().id)} />
+                        </Show>
                       </td>
                     )}
                   </Show>
@@ -204,16 +221,17 @@ function IntegrationGroup(props: {
   );
 }
 
-// Starts a process, or restarts it while it runs. What proc said when it
-// failed shows on the button's title until the next try.
-function StartButton(props: { running: boolean; control: ProcessControl; id: string }) {
+// A button that does something to an integration, such as starting a
+// process or opening a page. What failed shows on its title until the next
+// try.
+function ActionButton(props: { label: string; run: () => Promise<void>; blocked?: () => string | undefined }) {
   const [pending, setPending] = createSignal(false);
   const [failure, setFailure] = createSignal<string | undefined>(undefined);
-  const start = () => {
+  const run = () => {
     setPending(true);
     setFailure(undefined);
-    props.control
-      .start(props.id)
+    props
+      .run()
       .catch((error: Error) => setFailure(error.message))
       .finally(() => setPending(false));
   };
@@ -221,11 +239,11 @@ function StartButton(props: { running: boolean; control: ProcessControl; id: str
     <button
       type="button"
       class={["integration-start", { failed: failure() !== undefined }]}
-      disabled={pending() || props.control.blocked() !== undefined}
-      title={failure() ?? props.control.blocked() ?? (props.running ? "Restart it" : "Start it")}
-      onClick={start}
+      disabled={pending() || props.blocked?.() !== undefined}
+      title={failure() ?? props.blocked?.() ?? props.label}
+      onClick={run}
     >
-      {pending() ? "…" : props.running ? "Restart" : "Start"}
+      {pending() ? "…" : props.label}
     </button>
   );
 }

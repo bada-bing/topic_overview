@@ -10,7 +10,8 @@
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
 // up in the terminal; `…/worktree` posted to bring up a window working in the
 // discussion's worktree; `…/integrations/<id>` posted to bring a local
-// process's window up, or to start or restart it.
+// process's window or a page's tab up, to open a page's tab again, or to
+// start or restart a process.
 
 import { watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -30,6 +31,7 @@ import {
   sourceProblems,
 } from "@topic-overview/core";
 
+import { focusTab, openTab } from "./browser.ts";
 import { INTERVALS, integrationState, integrationStates } from "./integrations.ts";
 
 export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|worktree)(?:\/([^/]+))?)?$/;
@@ -92,12 +94,18 @@ export async function handleTopic(
   }
   if (verb === "integrations" && file && request.method === "POST") {
     const { action } = await readJson<{ action?: unknown }>(request);
+    const integration = (await store().read(key)).integrations.find((known) => known.id === file);
+    if (integration?.kind === "browser" && action === "open") {
+      await store().setTab(key, file, await openTab(integration.reference));
+      return send(response, 200, {});
+    }
     if (action === "focus") {
-      await store().focusProcess(key, file);
+      if (integration?.kind === "browser") await focusTab(integration.tab?.id ?? "");
+      else await store().focusProcess(key, file);
       return send(response, 200, {});
     }
     if (action === "start") return send(response, 200, { said: await store().startProcess(key, file) });
-    throw new StoreError("an integration is focused or started");
+    throw new StoreError("an integration is focused, opened or started");
   }
   if (verb === "worktree" && request.method === "POST") {
     await store().focusWorktree(key);
@@ -262,16 +270,26 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   // to Links, or one the agent adds, is watched from then on. Each kind is
   // asked as often as INTERVALS says, and a change of state goes to the
   // pages' Integrations widget.
-  const last = new Map<string, { state: string; detail?: string; at: number }>();
+  const last = new Map<string, { state: string; detail?: string; name?: string; at: number }>();
+  // A page with no tab yet is opened once, the first time it is watched;
+  // after that, only the Open button opens it again.
+  const opened = new Set<string>();
   const integrations = async () => {
     const { topic, text } = await store().source(key);
     const now = Date.now();
     for (const integration of integrationsOf(topic, text)) {
+      if (integration.kind === "browser" && !integration.tab && !opened.has(integration.id)) {
+        opened.add(integration.id);
+        integration.tab = await openTab(integration.reference);
+        await store().setTab(key, integration.id, integration.tab);
+      }
       const before = last.get(integration.id);
       if (before && now - before.at < INTERVALS[integration.kind]) continue;
       const state = await integrationState(integration);
-      last.set(integration.id, { state: state.state, detail: state.detail, at: now });
-      if (!before || before.state !== state.state || before.detail !== state.detail) tell(watch, { kind: "integration", state });
+      last.set(integration.id, { state: state.state, detail: state.detail, name: state.name, at: now });
+      if (!before || before.state !== state.state || before.detail !== state.detail || before.name !== state.name) {
+        tell(watch, { kind: "integration", state });
+      }
     }
   };
   check(integrations)();

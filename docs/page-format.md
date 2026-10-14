@@ -154,7 +154,11 @@ author, or is about a block that is not on the page.
   hash differs has changed since.
 - `integrations` are what the discussion depends on outside its source:
   `local`, a process of the process manager, named `project:process`;
-  `cluster`, a deployment in a Kubernetes cluster; `jenkins`, a build. They
+  `cluster`, a deployment in a Kubernetes cluster; `jenkins`, a build;
+  `browser`, a page the view opens in a browser of its own, by its URL, with
+  `tab` the tab it opened it in once it has: its `id`, the browser's CDP
+  `endpoint`, and the tab's own `webSocket`, which a client attaches to in
+  order to control it. They
   survive every version and carry over when the discussion is refreshed. A
   `cluster` reference is `context/namespace/deployment`, asked read-only and
   only for the contexts `TOPIC_OVERVIEW_KUBE_CONTEXTS` lists, and shown with

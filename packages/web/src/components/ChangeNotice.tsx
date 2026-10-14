@@ -11,7 +11,7 @@ export type Change =
   | { kind: "version"; message: string }
   | { kind: "linked"; page: string; message: string }
   | { kind: "info"; message: string; files?: string[] } // files: what an update from main changed that matters here
-  | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string } }
+  | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string; environment?: string; name?: string } }
   | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone"; name?: string } // what the discussion's agent is doing, and where
   | { kind: "conflict"; files: string[] }; // the files a merge from main stopped on; none once resolved
 

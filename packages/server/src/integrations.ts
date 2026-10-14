@@ -1,12 +1,13 @@
 // The state of a discussion's integrations, asked of the system each names:
 // GitLab for a merge request, tmux for a local process, kubectl for a
-// deployment, Jenkins' API for a job.
+// deployment, Jenkins' API for a job, and a browser over CDP for a page.
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { type Integration, deploymentReference, kubeContexts, processAddress, processState } from "@topic-overview/core";
 
+import { browserState } from "./browser.ts";
 import { GitlabError, mergeRequestState } from "./gitlab.ts";
 
 const run = promisify(execFile);
@@ -17,6 +18,7 @@ export interface IntegrationState {
   detail?: string;
   url?: string; // where to look at it, such as a build in Jenkins
   environment?: string; // where it runs, such as DEV for a deployment
+  name?: string; // what the system calls it, such as a page's title
 }
 
 // A merge request is asked of GitLab, on the hosts TOPIC_OVERVIEW_GITLAB_HOSTS
@@ -153,12 +155,14 @@ export const INTERVALS: Record<Integration["kind"], number> = {
   local: 5_000,
   cluster: 30_000,
   jenkins: 60_000,
+  browser: 5_000,
 };
 
 export async function integrationState(integration: Integration): Promise<IntegrationState> {
   if (integration.kind === "merge-request") return mergeRequest(integration);
   if (integration.kind === "local") return localState(integration);
   if (integration.kind === "cluster") return clusterState(integration);
+  if (integration.kind === "browser") return browserState(integration.id, integration.tab);
   return jenkinsState(integration);
 }
 

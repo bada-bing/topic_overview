@@ -15,7 +15,7 @@ import { promisify } from "node:util";
 
 import { randomUUID } from "node:crypto";
 
-import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session } from "./discussion.ts";
+import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session, type Tab } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
 import { deploymentReference } from "./cluster.ts";
@@ -396,16 +396,18 @@ export class Topics {
   }
 
   // Adds what the discussion depends on outside its source, as the agent or
-  // I decide: a local process, a deployment or a Jenkins build the agent
-  // started, never a job's last build, since others start the same job.
+  // I decide: a local process, a deployment, a Jenkins build the agent
+  // started, never a job's last build, since others start the same job, or
+  // a page open in a browser.
   // Its id is its kind and reference, so the same one is not added twice. A
   // merge request is read off the page's Links instead, never added.
   async addIntegration(key: string, kind: string, reference: string, label?: string): Promise<Integration> {
     if (!(INTEGRATION_KINDS as readonly string[]).includes(kind) || kind === "merge-request") {
-      throw new StoreError("an integration is local, cluster or jenkins; a merge request is listed under Links");
+      throw new StoreError("an integration is local, cluster, jenkins or browser; a merge request is listed under Links");
     }
     if (kind === "local") processAddress(reference);
     if (kind === "cluster") deploymentReference(reference);
+    if (kind === "browser" && !/^https?:\/\/\S+$/.test(reference)) throw new StoreError(`a page is its URL, not ${reference}`);
     if (kind === "jenkins" && !/^[^#/]*[^#/\s](\/[^#/]*[^#/\s])*#\d+$/.test(reference)) {
       throw new StoreError(`a build is <job>#<number>, with folders as <folder>/<job>, not ${reference}`);
     }
@@ -416,6 +418,17 @@ export class Topics {
     const added: Integration = { id, kind: kind as IntegrationKind, reference, ...(label ? { label } : {}) };
     await this.write({ ...topic, integrations: [...topic.integrations, added] });
     return added;
+  }
+
+  // Records the tab the view opened a browser page in, and how to reach it,
+  // so the page is that tab from then on, and an agent reading the state can
+  // attach to it.
+  async setTab(key: string, id: string, tab: Tab): Promise<void> {
+    const topic = await this.read(key);
+    const integration = topic.integrations.find((known) => known.id === id);
+    if (integration?.kind !== "browser") throw new StoreError(`${key} has no browser integration ${id}`);
+    integration.tab = tab;
+    await this.write(topic);
   }
 
   async removeIntegration(key: string, id: string): Promise<void> {
@@ -545,10 +558,15 @@ export class Topics {
     if (after !== before) await this.change(key, "Remove the ids the discussion added", () => after);
   }
 
-  // The worktree, the branch and the state, each removed if it is still
-  // there, the state last, so a removal that stops part way is finished by
-  // closing again.
+  // The tabs the view opened, the worktree, the branch and the state, each
+  // removed if it is still there, the state last, so a removal that stops
+  // part way is finished by closing again. A tab is closed through the
+  // browser's own endpoint, and one the browser no longer has, or a browser
+  // that is not running, is left as it is.
   private async remove(topic: Topic): Promise<void> {
+    for (const { tab } of topic.integrations) {
+      if (tab) await fetch(`${tab.endpoint}/json/close/${tab.id}`, { signal: AbortSignal.timeout(3_000) }).catch(() => undefined);
+    }
     const worktree = this.worktree(topic.key);
     if (existsSync(worktree)) await git(this.kb, "worktree", "remove", "--force", worktree);
     await git(this.kb, "worktree", "prune");

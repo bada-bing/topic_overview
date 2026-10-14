@@ -230,7 +230,8 @@ test("an integration is added once, by its kind and reference, and removed by it
 test("a merge request, an unknown kind and a process without its project are refused", async () => {
   await topics.open("KEY_1");
   await assert.rejects(topics.addIntegration("KEY_1", "merge-request", "https://host/-/merge_requests/1"), /listed under Links/);
-  await assert.rejects(topics.addIntegration("KEY_1", "printer", "x"), /local, cluster or jenkins/);
+  await assert.rejects(topics.addIntegration("KEY_1", "printer", "x"), /local, cluster, jenkins or browser/);
+  await assert.rejects(topics.addIntegration("KEY_1", "browser", "localhost:5173"), /a page is its URL/);
   await assert.rejects(topics.addIntegration("KEY_1", "local", "frontend"), /<project>:<process>/);
   assert.deepEqual((await topics.read("KEY_1")).integrations, []);
 });
@@ -265,4 +266,24 @@ test("a context is known by the environment it is named after, else by its clust
     ],
   );
   delete process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS;
+});
+
+test("closing a discussion closes the tabs the view opened for it", async () => {
+  const { createServer } = await import("node:http");
+  const asked: string[] = [];
+  const browser = createServer((request, response) => {
+    asked.push(request.url ?? "");
+    response.end("Target is closing");
+  });
+  await new Promise<void>((resolve) => browser.listen(0, "127.0.0.1", resolve));
+  const endpoint = `http://127.0.0.1:${(browser.address() as { port: number }).port}`;
+  try {
+    await topics.open("KEY_1");
+    const page = await topics.addIntegration("KEY_1", "browser", "http://localhost:3000/");
+    await topics.setTab("KEY_1", page.id, { id: "T1", endpoint, webSocket: `ws://${endpoint.slice(7)}/devtools/page/T1` });
+    await topics.discard("KEY_1");
+    assert.deepEqual(asked, ["/json/close/T1"]);
+  } finally {
+    browser.close();
+  }
 });

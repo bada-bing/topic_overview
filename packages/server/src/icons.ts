@@ -7,12 +7,16 @@
 // GKE cluster's. The cache
 // is TOPIC_OVERVIEW_CACHE, or ~/.cache/topic-overview, outside the repository.
 
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { StoreError, kubeContexts } from "@topic-overview/core";
 
+const run = promisify(execFile);
 const TIMEOUT = 8_000;
 
 export interface Icon {
@@ -58,5 +62,37 @@ export async function iconOf(origin: string): Promise<Icon> {
   await writeFile(file, icon.body);
   await writeFile(`${file}.type`, type);
   known.set(origin, icon);
+  return icon;
+}
+
+// The icon of the terminal app TOPIC_OVERVIEW_TERMINAL names, where a local
+// process's window is brought up: read from the installed app, as the file
+// its Info.plist names, and converted to PNG with macOS's sips, so nothing
+// is fetched. It is kept in the cache like the systems' icons.
+export async function terminalIcon(): Promise<Icon> {
+  const name = process.env.TOPIC_OVERVIEW_TERMINAL;
+  if (!name) throw new StoreError("no terminal app is configured");
+  const kept = known.get(`app:${name}`);
+  if (kept) return kept;
+  const file = join(cacheRoot(), "icons", `${name}.app.png`);
+  const cached = await readFile(file).catch(() => undefined);
+  if (!cached) {
+    const app = ["/Applications", join(homedir(), "Applications"), "/System/Applications"]
+      .map((folder) => join(folder, `${name}.app`))
+      .find((path) => existsSync(path));
+    if (!app) throw new StoreError(`${name} is not installed`);
+    const plist = join(app, "Contents", "Info.plist");
+    const { stdout } = await run("plutil", ["-extract", "CFBundleIconFile", "raw", plist]).catch(() => ({ stdout: "" }));
+    const named = stdout.trim();
+    if (!named) throw new StoreError(`${name} names no icon`);
+    const icns = join(app, "Contents", "Resources", named.endsWith(".icns") ? named : `${named}.icns`);
+    await mkdir(join(cacheRoot(), "icons"), { recursive: true });
+    await run("sips", ["-s", "format", "png", "-Z", "64", icns, "--out", file]);
+    // An app icon is drawn with a margin of about a tenth on each side, by
+    // Apple's template, which would show it smaller than the systems' icons.
+    await run("sips", ["-c", "52", "52", file]);
+  }
+  const icon = { body: cached ?? (await readFile(file)), type: "image/png" };
+  known.set(`app:${name}`, icon);
   return icon;
 }

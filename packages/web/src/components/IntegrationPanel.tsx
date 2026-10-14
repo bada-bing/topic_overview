@@ -116,8 +116,8 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
   );
 }
 
-// One kind's integrations under a heading carrying the icon of the system
-// they live on, when it has one that loads.
+// One kind's integrations under a heading carrying an icon, when it has one
+// that loads.
 function IntegrationGroup(props: {
   heading: string;
   integrations: Integration[];
@@ -125,8 +125,11 @@ function IntegrationGroup(props: {
   processes?: ProcessControl;
 }) {
   const [iconShown, setIconShown] = createSignal(false);
+  // A local process's icon is the terminal app's, where its window is
+  // brought up; the others are the icon of the system they link to.
   const icon = () => {
     const first = props.integrations[0];
+    if (first.kind === "local") return "/api/icon?app=terminal";
     return iconOf(props.states.get(first.id)?.url ?? first.reference);
   };
   return (

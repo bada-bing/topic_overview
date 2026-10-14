@@ -65,13 +65,17 @@ export async function iconOf(origin: string): Promise<Icon> {
   return icon;
 }
 
-// The icon of the terminal app TOPIC_OVERVIEW_TERMINAL names, where a local
-// process's window is brought up: read from the installed app, as the file
-// its Info.plist names, and converted to PNG with macOS's sips, so nothing
-// is fetched. It is kept in the cache like the systems' icons.
-export async function terminalIcon(): Promise<Icon> {
-  const name = process.env.TOPIC_OVERVIEW_TERMINAL;
-  if (!name) throw new StoreError("no terminal app is configured");
+// The icon of an app the configuration names: the terminal,
+// TOPIC_OVERVIEW_TERMINAL, where a local process's window is brought up, or
+// the browser, TOPIC_OVERVIEW_BROWSER, where a page's tab is. It is read
+// from the installed app, as the file its Info.plist names, and converted
+// to PNG with macOS's sips, so nothing is fetched. It is kept in the cache
+// like the systems' icons.
+const APPS: Record<string, string> = { terminal: "TOPIC_OVERVIEW_TERMINAL", browser: "TOPIC_OVERVIEW_BROWSER" };
+
+export async function appIcon(which: string): Promise<Icon> {
+  const name = APPS[which] ? process.env[APPS[which]] : undefined;
+  if (!name) throw new StoreError(`no ${which} app is configured`);
   const kept = known.get(`app:${name}`);
   if (kept) return kept;
   const file = join(cacheRoot(), "icons", `${name}.app.png`);

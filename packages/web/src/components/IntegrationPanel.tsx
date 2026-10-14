@@ -132,11 +132,12 @@ function IntegrationGroup(props: {
 }) {
   const [iconShown, setIconShown] = createSignal(false);
   // A local process's icon is the terminal app's, where its window is
-  // brought up; the others are the icon of the system they link to.
+  // brought up, and a page's the browser's, where its tab is; the others
+  // are the icon of the system they link to.
   const icon = () => {
     const first = props.integrations[0];
     if (first.kind === "local") return "/api/icon?app=terminal";
-    if (first.kind === "browser") return undefined;
+    if (first.kind === "browser") return "/api/icon?app=browser";
     return iconOf(props.states.get(first.id)?.url ?? first.reference);
   };
   return (

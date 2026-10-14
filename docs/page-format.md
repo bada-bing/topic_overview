@@ -152,15 +152,14 @@ author, or is about a block that is not on the page.
 
 - `sourceHash` is the SHA-256 of the source as it was copied; a source whose
   hash differs has changed since.
-- `integrations` are what the discussion depends on outside its source, added
-  with `topic integration add <source> <kind> <reference>`: `local`, a process
-  of the process manager, named `project:process`; `cluster`, a deployment in a
-  Kubernetes cluster; `jenkins`, a job. They survive every version and carry
-  over when the discussion is refreshed. A `cluster` reference is
-  `context/namespace/deployment`, asked read-only and only for the contexts
-  `TOPIC_OVERVIEW_KUBE_CONTEXTS` lists. A `jenkins` reference is a build,
-  `job#number`, or a job alone, meaning its last build; folders are written
-  `folder/job`. A finished build is not asked again. The server is
+- `integrations` are what the discussion depends on outside its source:
+  `local`, a process of the process manager, named `project:process`;
+  `cluster`, a deployment in a Kubernetes cluster; `jenkins`, a build. They
+  survive every version and carry over when the discussion is refreshed. A
+  `cluster` reference is `context/namespace/deployment`, asked read-only and
+  only for the contexts `TOPIC_OVERVIEW_KUBE_CONTEXTS` lists. A `jenkins`
+  reference is a build, `job#number`, with folders written `folder/job`. A
+  finished build is not asked again. The server is
   `TOPIC_OVERVIEW_JENKINS_URL`, asked as `TOPIC_OVERVIEW_JENKINS_USER`, with
   the token from the environment.
 - `resolution` is set when the discussion is closed, saying why: `on-demand`

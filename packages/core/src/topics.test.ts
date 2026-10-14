@@ -240,3 +240,15 @@ test("only a process the discussion lists is started or brought up", async () =>
   await assert.rejects(topics.startProcess("KEY_1", "local:garden:server"), /no local integration/);
   await assert.rejects(topics.focusProcess("KEY_1", "local:garden:server"), /no local integration/);
 });
+
+test("a deployment is in a configured context, and a build has its number", async () => {
+  await topics.open("KEY_1");
+  process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS = "garden-dev";
+  assert.equal((await topics.addIntegration("KEY_1", "cluster", "garden-dev/beds/watering")).id, "cluster:garden-dev/beds/watering");
+  await assert.rejects(topics.addIntegration("KEY_1", "cluster", "garden-prod/beds/watering"), /not a context/);
+  await assert.rejects(topics.addIntegration("KEY_1", "cluster", "garden-dev/watering"), /<context>\/<namespace>\/<deployment>/);
+  assert.equal((await topics.addIntegration("KEY_1", "jenkins", "garden/deploy#42")).id, "jenkins:garden/deploy#42");
+  assert.equal((await topics.addIntegration("KEY_1", "jenkins", "Garden - Deploy#7")).reference, "Garden - Deploy#7");
+  await assert.rejects(topics.addIntegration("KEY_1", "jenkins", "garden/deploy"), /<job>#<number>/);
+  delete process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS;
+});

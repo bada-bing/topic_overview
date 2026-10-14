@@ -18,6 +18,7 @@ import { randomUUID } from "node:crypto";
 import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
+import { deploymentReference } from "./cluster.ts";
 import { processAddress, processWindow, startProcess } from "./process.ts";
 import type { Question } from "./question.ts";
 import { StoreError } from "./store.ts";
@@ -395,14 +396,19 @@ export class Topics {
   }
 
   // Adds what the discussion depends on outside its source, as the agent or
-  // I decide: a local process, a deployment or a Jenkins build. Its id is
-  // its kind and reference, so the same one is not added twice. A merge
-  // request is read off the page's Links instead, never added.
+  // I decide: a local process, a deployment or a Jenkins build the agent
+  // started, never a job's last build, since others start the same job.
+  // Its id is its kind and reference, so the same one is not added twice. A
+  // merge request is read off the page's Links instead, never added.
   async addIntegration(key: string, kind: string, reference: string, label?: string): Promise<Integration> {
     if (!(INTEGRATION_KINDS as readonly string[]).includes(kind) || kind === "merge-request") {
       throw new StoreError("an integration is local, cluster or jenkins; a merge request is listed under Links");
     }
     if (kind === "local") processAddress(reference);
+    if (kind === "cluster") deploymentReference(reference);
+    if (kind === "jenkins" && !/^[^#/]*[^#/\s](\/[^#/]*[^#/\s])*#\d+$/.test(reference)) {
+      throw new StoreError(`a build is <job>#<number>, with folders as <folder>/<job>, not ${reference}`);
+    }
     const topic = await this.read(key);
     const id = `${kind}:${reference}`;
     const known = topic.integrations.find((integration) => integration.id === id);

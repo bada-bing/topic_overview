@@ -1,4 +1,5 @@
 export * from "./attachments.ts";
+export * from "./cluster.ts";
 export * from "./discussion.ts";
 export * from "./edit.ts";
 export * from "./logseq.ts";

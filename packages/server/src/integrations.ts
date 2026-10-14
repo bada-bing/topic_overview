@@ -86,8 +86,7 @@ async function clusterState(integration: Integration): Promise<IntegrationState>
   return { id: integration.id, state, detail: `${ready}/${wanted} ready · ${tag}` };
 }
 
-interface LastBuild {
-  number: number;
+interface Build {
   result: string | null;
   building: boolean;
   timestamp: number;
@@ -100,17 +99,15 @@ function ago(time: number): string {
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
 }
 
-// A jenkins integration is a build the agent started, written job#number,
-// or a job alone, meaning its last build; folders are written folder/job.
-// The server asked is TOPIC_OVERVIEW_JENKINS_URL, as
-// TOPIC_OVERVIEW_JENKINS_USER, with the token in TOPIC_OVERVIEW_JENKINS_TOKEN
-// or else JENKINS_API_TOKEN. A finished build cannot change, so its state is
-// kept and Jenkins is not asked about it again.
-const finished = new Map<string, IntegrationState>();
+// A jenkins integration is a build the agent started, written job#number;
+// folders are written folder/job. The server asked is
+// TOPIC_OVERVIEW_JENKINS_URL, as TOPIC_OVERVIEW_JENKINS_USER, with the token
+// in TOPIC_OVERVIEW_JENKINS_TOKEN or else JENKINS_API_TOKEN. A finished build
+// cannot change, so Jenkins' answer is kept and not asked again; only how
+// long ago it ran moves on.
+const finished = new Map<string, Build>();
 
 async function jenkinsState(integration: Integration): Promise<IntegrationState> {
-  const known = finished.get(integration.reference);
-  if (known) return { ...known, id: integration.id };
   const base = process.env.TOPIC_OVERVIEW_JENKINS_URL?.replace(/\/$/, "");
   const user = process.env.TOPIC_OVERVIEW_JENKINS_USER;
   const token = process.env.TOPIC_OVERVIEW_JENKINS_TOKEN ?? process.env.JENKINS_API_TOKEN;
@@ -120,27 +117,28 @@ async function jenkinsState(integration: Integration): Promise<IntegrationState>
     .split("/")
     .map((part) => `job/${encodeURIComponent(part.trim())}`)
     .join("/");
-  const build = number ? number.trim() : "lastBuild";
-  let answer: LastBuild;
-  try {
-    const response = await fetch(`${base}/${path}/${build}/api/json?tree=number,result,building,timestamp`, {
-      headers: { authorization: `Basic ${Buffer.from(`${user}:${token}`).toString("base64")}` },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (response.status === 404) return { id: integration.id, state: "unknown", detail: "no such job or build" };
-    if (!response.ok) return { id: integration.id, state: "unknown", detail: `Jenkins answered ${response.status}` };
-    answer = (await response.json()) as LastBuild;
-  } catch {
-    return { id: integration.id, state: "unknown", detail: "Jenkins did not answer" };
+  const url = `${base}/${path}/${number}/`;
+  let build = finished.get(integration.reference);
+  if (!build) {
+    try {
+      const response = await fetch(`${url}api/json?tree=result,building,timestamp`, {
+        headers: { authorization: `Basic ${Buffer.from(`${user}:${token}`).toString("base64")}` },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (response.status === 404) return { id: integration.id, state: "unknown", detail: "no such job or build" };
+      if (!response.ok) return { id: integration.id, state: "unknown", detail: `Jenkins answered ${response.status}` };
+      build = (await response.json()) as Build;
+    } catch {
+      return { id: integration.id, state: "unknown", detail: "Jenkins did not answer" };
+    }
+    if (!build.building && build.result) finished.set(integration.reference, build);
   }
-  const state: IntegrationState = {
+  return {
     id: integration.id,
-    state: answer.building ? "building" : (answer.result ?? "unknown").toLowerCase().replace("_", " "),
-    detail: `#${answer.number} · ${answer.building ? "started" : "ran"} ${ago(answer.timestamp)}`,
-    url: `${base}/${path}/${answer.number}/`,
+    state: build.building ? "building" : (build.result ?? "unknown").toLowerCase().replace("_", " "),
+    detail: `${build.building ? "started" : "ran"} ${ago(build.timestamp)}`,
+    url,
   };
-  if (number && !answer.building && answer.result) finished.set(integration.reference, state);
-  return state;
 }
 
 // How often each kind is asked while a page is open: local processes are

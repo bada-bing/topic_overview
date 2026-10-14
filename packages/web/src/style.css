@@ -853,12 +853,23 @@ main [id] {
 }
 
 /* The integrations open from the bottom of the page, as a panel as wide as
-   the page, from a tab at its bottom-right edge. */
-.integration-tab {
+   the page and a fixed part of the window tall, from a tab at its
+   bottom-right edge that rises with it. Only the tab and the panel take
+   clicks, not the strip beside the tab. */
+.integrations {
   position: fixed;
-  right: 16px;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.integration-tab {
+  margin-right: 16px;
   font: inherit;
   font-size: 0.8rem;
   padding: 3px 10px;
@@ -868,38 +879,33 @@ main [id] {
   border-bottom: none;
   border-radius: 6px 6px 0 0;
   cursor: pointer;
+  pointer-events: auto;
 }
 
-.integration-tab.open {
-  bottom: 30vh;
-}
-
+/* Two columns, the change's way through review and CI, and where it runs;
+   on a narrow page the second goes under the first. */
 .integration-panel {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
+  align-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 40px;
   height: 30vh;
   overflow: auto;
-  padding: 8px 16px;
+  padding: 8px 16px 12px;
   box-sizing: border-box;
   background: var(--code-background);
   border-top: 1px solid var(--rule);
   font-size: 0.85rem;
+  pointer-events: auto;
 }
 
-/* One group per kind, side by side, wrapping when the page is narrow. */
-.integration-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px 32px;
-}
-
-.integration-group {
+.integration-column {
   flex: 1 1 360px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .integration-heading {

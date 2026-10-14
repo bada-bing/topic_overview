@@ -10,13 +10,19 @@ export interface IntegrationState {
   environment?: string; // where it runs, such as DEV for a deployment
 }
 
-// The kinds in the order their groups stand in the panel, each named as its
-// group's heading.
-const KINDS: [Integration["kind"], string][] = [
-  ["merge-request", "Merge requests"],
-  ["local", "Processes"],
-  ["cluster", "Deployments"],
-  ["jenkins", "Builds"],
+// The kinds as the panel shows them: two columns, each answering one
+// question. The left one is the change's way through review and CI, the
+// right one where it runs, locally or in a cluster. Each kind is a group
+// under its heading.
+const COLUMNS: [Integration["kind"], string][][] = [
+  [
+    ["merge-request", "Merge requests"],
+    ["jenkins", "Builds"],
+  ],
+  [
+    ["local", "Processes"],
+    ["cluster", "Deployments"],
+  ],
 ];
 
 // Whether the panel was left open, kept per browser; a page that cannot keep
@@ -71,30 +77,41 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
     setOpen(next);
     keepOpen(next);
   };
-  const groups = createMemo(() =>
-    KINDS.map(([kind, heading]) => ({ kind, heading, integrations: props.integrations.filter((integration) => integration.kind === kind) })).filter(
-      (group) => group.integrations.length > 0,
-    ),
+  // The columns with something in them, so one alone takes the whole width.
+  const columns = createMemo(() =>
+    COLUMNS.map((column) =>
+      column
+        .map(([kind, heading]) => ({ kind, heading, integrations: props.integrations.filter((integration) => integration.kind === kind) }))
+        .filter((group) => group.integrations.length > 0),
+    ).filter((column) => column.length > 0),
   );
   return (
     <Show when={props.integrations.length > 0}>
-      <button type="button" class={["integration-tab", { open: open() }]} onClick={toggle} aria-expanded={open() ? "true" : "false"}>
-        Integrations ({props.integrations.length}) {open() ? "▾" : "▴"}
-      </button>
-      <Show when={open()}>
-        <section class="integration-panel">
-          <For each={groups()} keyed={(group) => group.kind}>
-            {(group) => (
-              <IntegrationGroup
-                heading={group().heading}
-                integrations={group().integrations}
-                states={props.states}
-                processes={group().kind === "local" ? props.processes : undefined}
-              />
-            )}
-          </For>
-        </section>
-      </Show>
+      <div class="integrations">
+        <button type="button" class="integration-tab" onClick={toggle} aria-expanded={open() ? "true" : "false"}>
+          Integrations ({props.integrations.length}) {open() ? "▾" : "▴"}
+        </button>
+        <Show when={open()}>
+          <section class="integration-panel">
+            <For each={columns()} keyed={false}>
+              {(column) => (
+                <div class="integration-column">
+                  <For each={column()} keyed={(group) => group.kind}>
+                    {(group) => (
+                      <IntegrationGroup
+                        heading={group().heading}
+                        integrations={group().integrations}
+                        states={props.states}
+                        processes={group().kind === "local" ? props.processes : undefined}
+                      />
+                    )}
+                  </For>
+                </div>
+              )}
+            </For>
+          </section>
+        </Show>
+      </div>
     </Show>
   );
 }

@@ -252,3 +252,17 @@ test("a deployment is in a configured context, and a build has its number", asyn
   await assert.rejects(topics.addIntegration("KEY_1", "jenkins", "garden/deploy"), /<job>#<number>/);
   delete process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS;
 });
+
+test("a context is known by the environment it is named after, else by its cluster", async () => {
+  const { kubeContexts } = await import("./cluster.ts");
+  process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS = "DEV=gke_garden_eu-1_beds-dev, gke_garden_eu-1_beds-test,minikube";
+  assert.deepEqual(
+    [...kubeContexts()],
+    [
+      ["gke_garden_eu-1_beds-dev", "DEV"],
+      ["gke_garden_eu-1_beds-test", "beds-test"],
+      ["minikube", "minikube"],
+    ],
+  );
+  delete process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS;
+});

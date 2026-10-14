@@ -7,6 +7,7 @@ export interface IntegrationState {
   state: string;
   detail?: string;
   url?: string;
+  environment?: string; // where it runs, such as DEV for a deployment
 }
 
 // The kinds in the order their groups stand in the panel, each named as its
@@ -155,6 +156,13 @@ function IntegrationGroup(props: {
                       )}
                     </Show>
                   </td>
+                  <Show when={state()?.environment}>
+                    {(environment) => (
+                      <td class="integration-environment">
+                        <span>{environment()}</span>
+                      </td>
+                    )}
+                  </Show>
                   <td class={["integration-state", `integration-${(state()?.state ?? "unknown").replace(/\s+/g, "-")}`]}>
                     {state()?.state ?? "…"}
                   </td>

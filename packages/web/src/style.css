@@ -954,6 +954,17 @@ main [id] {
   color: var(--link);
 }
 
+/* The environment a deployment runs in, as a tag beside its name. */
+.integration-environment span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
 .integration-action {
   white-space: nowrap;
 }

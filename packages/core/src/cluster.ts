@@ -1,15 +1,21 @@
 // The Kubernetes clusters a discussion may show deployments of: the kubectl
-// contexts TOPIC_OVERVIEW_KUBE_CONTEXTS lists, separated by commas.
+// contexts TOPIC_OVERVIEW_KUBE_CONTEXTS lists, separated by commas, each
+// named after its environment as `DEV=<context>`. A context listed without a
+// name is known by its cluster's name, the last part of a GKE context, which
+// is named gke_<project>_<location>_<cluster>.
 
 import { StoreError } from "./store.ts";
 
-export function kubeContexts(): Set<string> {
-  return new Set(
-    (process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS ?? "")
-      .split(",")
-      .map((context) => context.trim())
-      .filter(Boolean),
-  );
+// Each configured context, with the name of its environment.
+export function kubeContexts(): Map<string, string> {
+  const contexts = new Map<string, string>();
+  for (const entry of (process.env.TOPIC_OVERVIEW_KUBE_CONTEXTS ?? "").split(",")) {
+    const [first, second] = entry.split("=").map((part) => part.trim());
+    const context = second ?? first;
+    if (!context) continue;
+    contexts.set(context, second ? first : (/^gke_[^_]+_[^_]+_(.+)$/.exec(context)?.[1] ?? context));
+  }
+  return contexts;
 }
 
 // A deployment is <context>/<namespace>/<deployment>, in a configured

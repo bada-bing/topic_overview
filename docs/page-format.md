@@ -157,9 +157,10 @@ author, or is about a block that is not on the page.
   `cluster`, a deployment in a Kubernetes cluster; `jenkins`, a build. They
   survive every version and carry over when the discussion is refreshed. A
   `cluster` reference is `context/namespace/deployment`, asked read-only and
-  only for the contexts `TOPIC_OVERVIEW_KUBE_CONTEXTS` lists. A `jenkins`
-  reference is a build, `job#number`, with folders written `folder/job`. A
-  finished build is not asked again. The server is
+  only for the contexts `TOPIC_OVERVIEW_KUBE_CONTEXTS` lists, and shown with
+  the name of its environment given there. A `jenkins` reference is a build,
+  `job#number`, with folders written `folder/job`. A finished build is not
+  asked again. The server is
   `TOPIC_OVERVIEW_JENKINS_URL`, asked as `TOPIC_OVERVIEW_JENKINS_USER`, with
   the token from the environment.
 - `resolution` is set when the discussion is closed, saying why: `on-demand`

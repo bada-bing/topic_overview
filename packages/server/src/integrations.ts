@@ -5,7 +5,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { type Integration, processAddress, processState } from "@topic-overview/core";
+import { type Integration, deploymentReference, kubeContexts, processAddress, processState } from "@topic-overview/core";
 
 import { GitlabError, mergeRequestState } from "./gitlab.ts";
 
@@ -16,6 +16,7 @@ export interface IntegrationState {
   state: string; // such as running, exited, not started, unknown
   detail?: string;
   url?: string; // where to look at it, such as a build in Jenkins
+  environment?: string; // where it runs, such as DEV for a deployment
 }
 
 // A merge request is asked of GitLab, on the hosts TOPIC_OVERVIEW_GITLAB_HOSTS
@@ -41,15 +42,6 @@ async function localState(integration: Integration): Promise<IntegrationState> {
   }
 }
 
-function configured(variable: string): Set<string> {
-  return new Set(
-    (process.env[variable] ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  );
-}
-
 interface DeploymentStatus {
   metadata: { generation: number };
   spec: { replicas?: number; template: { spec: { containers: { image: string }[] } } };
@@ -66,18 +58,18 @@ export function consoleUrl(context: string, namespace: string, name: string): st
   return `https://console.cloud.google.com/kubernetes/deployment/${location}/${cluster}/${namespace}/${name}/overview?project=${project}`;
 }
 
-// A cluster integration is a deployment, named context/namespace/deployment.
-// Only the contexts TOPIC_OVERVIEW_KUBE_CONTEXTS lists are asked, read-only.
+// A cluster integration is a deployment, named context/namespace/deployment,
+// shown with the name of its environment. Only the contexts
+// TOPIC_OVERVIEW_KUBE_CONTEXTS lists are asked, read-only.
 async function clusterState(integration: Integration): Promise<IntegrationState> {
-  const [context, namespace, name] = integration.reference.split("/");
-  if (!context || !namespace || !name) {
-    return { id: integration.id, state: "unknown", detail: "a cluster reference is context/namespace/deployment" };
-  }
-  if (!configured("TOPIC_OVERVIEW_KUBE_CONTEXTS").has(context)) {
-    return { id: integration.id, state: "unknown", detail: `${context} is not a configured context` };
+  let context: string, namespace: string, name: string;
+  try {
+    ({ context, namespace, name } = deploymentReference(integration.reference));
+  } catch (failure) {
+    return { id: integration.id, state: "unknown", detail: (failure as Error).message };
   }
   const url = consoleUrl(context, namespace, name);
-  const shown = { id: integration.id, ...(url ? { url } : {}) };
+  const shown = { id: integration.id, environment: kubeContexts().get(context), ...(url ? { url } : {}) };
   let deployment: DeploymentStatus;
   try {
     const { stdout } = await run(

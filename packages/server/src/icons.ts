@@ -33,7 +33,7 @@ function allowedOrigins(): Set<string> {
   }
   const jenkins = process.env.TOPIC_OVERVIEW_JENKINS_URL;
   if (jenkins) origins.add(new URL(jenkins).origin);
-  if ([...kubeContexts()].some((context) => context.startsWith("gke_"))) origins.add("https://console.cloud.google.com");
+  if ([...kubeContexts().keys()].some((context) => context.startsWith("gke_"))) origins.add("https://console.cloud.google.com");
   return origins;
 }
 

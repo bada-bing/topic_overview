@@ -102,12 +102,41 @@ export async function focusTab(tab: string): Promise<void> {
   }
 }
 
-// Whether the page's tab is open and can be controlled over CDP. The tab's
-// title is its name.
-export async function browserState(id: string, tab: Tab | undefined): Promise<{ id: string; state: string; name?: string }> {
+// Asks a tab where its document is, and, on the page Chrome shows when a
+// page could not load, why: that page lives at chrome-error://, and prints
+// the error's code. A tab that does not answer counts as loaded.
+async function loadFailure(webSocket: string): Promise<string | undefined> {
+  const socket = new WebSocket(webSocket);
+  const expression = `location.protocol === "chrome-error:" ? document.querySelector(".error-code")?.textContent || "error" : ""`;
+  try {
+    return await new Promise<string | undefined>((resolve) => {
+      setTimeout(() => resolve(undefined), 3_000);
+      socket.addEventListener("open", () =>
+        socket.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression, returnByValue: true } })),
+      );
+      socket.addEventListener("message", (event) => {
+        const message = JSON.parse(String(event.data));
+        if (message.id === 1) resolve(message.result?.result?.value || undefined);
+      });
+      socket.addEventListener("error", () => resolve(undefined));
+    });
+  } finally {
+    socket.close();
+  }
+}
+
+// Whether the page's tab is open and can be controlled over CDP, and
+// whether the page in it loaded. The tab's title is its name, and the
+// page's address when it did not load, since the title is then Chrome's.
+export async function browserState(
+  id: string,
+  tab: Tab | undefined,
+): Promise<{ id: string; state: string; name?: string; detail?: string }> {
   const targets = await tabs();
   if (!targets) return { id, state: "not running" };
   const target = tab ? targets.find((known) => known.id === tab.id) : undefined;
   if (!target?.webSocketDebuggerUrl) return { id, state: "not open" };
+  const failure = await loadFailure(target.webSocketDebuggerUrl);
+  if (failure) return { id, state: "failed to load", name: target.url, detail: failure };
   return { id, state: "open", name: target.title || target.url };
 }

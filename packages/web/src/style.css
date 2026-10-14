@@ -1012,7 +1012,8 @@ main [id] {
 .integration-aborted,
 .integration-unavailable,
 .integration-closed,
-.integration-exited { color: #cf222e; }
+.integration-exited,
+.integration-failed-to-load { color: #cf222e; }
 .integration-not-open,
 .integration-not-running { font-style: italic; }
 .integration-detail.failed { color: #cf222e; }

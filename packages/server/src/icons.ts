@@ -2,14 +2,16 @@
 // fetched once from its origin and kept in a local cache, so the page shows
 // it without asking the system again, even when the system cannot be reached.
 // Only the origins the configuration names are fetched: the GitLab hosts
-// TOPIC_OVERVIEW_GITLAB_HOSTS lists and TOPIC_OVERVIEW_JENKINS_URL. The cache
+// TOPIC_OVERVIEW_GITLAB_HOSTS lists, TOPIC_OVERVIEW_JENKINS_URL, and the
+// Google Cloud console when a context in TOPIC_OVERVIEW_KUBE_CONTEXTS is a
+// GKE cluster's. The cache
 // is TOPIC_OVERVIEW_CACHE, or ~/.cache/topic-overview, outside the repository.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { StoreError } from "@topic-overview/core";
+import { StoreError, kubeContexts } from "@topic-overview/core";
 
 const TIMEOUT = 8_000;
 
@@ -31,6 +33,7 @@ function allowedOrigins(): Set<string> {
   }
   const jenkins = process.env.TOPIC_OVERVIEW_JENKINS_URL;
   if (jenkins) origins.add(new URL(jenkins).origin);
+  if ([...kubeContexts()].some((context) => context.startsWith("gke_"))) origins.add("https://console.cloud.google.com");
   return origins;
 }
 

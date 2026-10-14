@@ -56,6 +56,16 @@ interface DeploymentStatus {
   status: { readyReplicas?: number; updatedReplicas?: number; observedGeneration?: number };
 }
 
+// Where a deployment is shown in the Google Cloud console, read off the
+// name GKE gives a cluster's kubectl context: gke_<project>_<location>_<cluster>.
+// A context of any other cluster has no such page.
+export function consoleUrl(context: string, namespace: string, name: string): string | undefined {
+  const gke = /^gke_([^_]+)_([^_]+)_(.+)$/.exec(context);
+  if (!gke) return undefined;
+  const [, project, location, cluster] = gke;
+  return `https://console.cloud.google.com/kubernetes/deployment/${location}/${cluster}/${namespace}/${name}/overview?project=${project}`;
+}
+
 // A cluster integration is a deployment, named context/namespace/deployment.
 // Only the contexts TOPIC_OVERVIEW_KUBE_CONTEXTS lists are asked, read-only.
 async function clusterState(integration: Integration): Promise<IntegrationState> {
@@ -66,6 +76,8 @@ async function clusterState(integration: Integration): Promise<IntegrationState>
   if (!configured("TOPIC_OVERVIEW_KUBE_CONTEXTS").has(context)) {
     return { id: integration.id, state: "unknown", detail: `${context} is not a configured context` };
   }
+  const url = consoleUrl(context, namespace, name);
+  const shown = { id: integration.id, ...(url ? { url } : {}) };
   let deployment: DeploymentStatus;
   try {
     const { stdout } = await run(
@@ -75,7 +87,7 @@ async function clusterState(integration: Integration): Promise<IntegrationState>
     );
     deployment = JSON.parse(stdout);
   } catch {
-    return { id: integration.id, state: "unknown", detail: `${context} did not answer` };
+    return { ...shown, state: "unknown", detail: `${context} did not answer` };
   }
   const wanted = deployment.spec.replicas ?? 1;
   const ready = deployment.status.readyReplicas ?? 0;
@@ -83,7 +95,7 @@ async function clusterState(integration: Integration): Promise<IntegrationState>
   const tag = deployment.spec.template.spec.containers[0]?.image.split(":").pop() ?? "";
   const rolling = (deployment.status.observedGeneration ?? 0) < deployment.metadata.generation || updated < wanted;
   const state = ready === 0 && wanted > 0 ? "unavailable" : rolling || ready < wanted ? "rolling out" : "ready";
-  return { id: integration.id, state, detail: `${ready}/${wanted} ready · ${tag}` };
+  return { ...shown, state, detail: `${ready}/${wanted} ready · ${tag}` };
 }
 
 interface Build {

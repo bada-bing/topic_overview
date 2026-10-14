@@ -1015,6 +1015,7 @@ main [id] {
 .integration-exited { color: #cf222e; }
 .integration-not-open,
 .integration-not-running { font-style: italic; }
+.integration-detail.failed { color: #cf222e; }
 .integration-open { color: var(--link); }
 .integration-merged { color: var(--done); }
 .integration-draft { color: var(--now); }

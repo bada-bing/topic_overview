@@ -162,6 +162,13 @@ function IntegrationGroup(props: {
             {(integration) => {
               const state = () => props.states.get(integration().id);
               const name = () => integration().label ?? state()?.name ?? integration().reference;
+              // Why bringing it up failed, until it next works.
+              const [failure, setFailure] = createSignal<string | undefined>(undefined);
+              const focus = (control: IntegrationControl) =>
+                control.focus(integration().id).then(
+                  () => setFailure(undefined),
+                  (error: Error) => setFailure(error.message),
+                );
               const closed = () => ["not open", "not running"].includes(state()?.state ?? "");
               return (
                 <tr title={integration().reference}>
@@ -179,7 +186,7 @@ function IntegrationGroup(props: {
                       }
                     >
                       {(control) => (
-                        <button type="button" class="integration-window" title="Bring it up" onClick={() => void control().focus(integration().id).catch(() => {})}>
+                        <button type="button" class="integration-window" title="Bring it up" onClick={() => void focus(control())}>
                           {name()}
                         </button>
                       )}
@@ -206,12 +213,12 @@ function IntegrationGroup(props: {
                           />
                         </Show>
                         <Show when={props.kind === "browser" && closed()}>
-                          <ActionButton label="Open" run={() => control().open(integration().id)} />
+                          <ActionButton label="Open" run={() => control().open(integration().id).then(() => setFailure(undefined))} />
                         </Show>
                       </td>
                     )}
                   </Show>
-                  <td class="integration-detail">{state()?.detail ?? integration().detail ?? ""}</td>
+                  <td class={["integration-detail", { failed: failure() !== undefined }]}>{failure() ?? state()?.detail ?? integration().detail ?? ""}</td>
                 </tr>
               );
             }}

@@ -32,8 +32,16 @@ test("a page's links to other pages are found, but not inside code", () => {
 test("a reference to a block not on the page is a problem, named by its block", () => {
   const page = parsePage("- Points at ((b2))\n  id:: b1\n- Here\n  id:: b2\n- Points at ((gone))\n  id:: b3\n");
   assert.deepEqual(sourceProblems(page), [
-    { block: "b3", excerpt: "Points at ((gone))", reason: "references ((gone)), which is not on the page" },
+    { block: "b3", excerpt: "Points at ((gone))", reason: "references ((gone)), which no block has" },
   ]);
+});
+
+test("a reference to a block found on another page is no problem", () => {
+  const page = parsePage("- Points at ((far))\n  id:: b1\n- Points at ((gone))\n  id:: b2\n");
+  assert.deepEqual(
+    sourceProblems(page, new Set(["far"])).map((problem) => problem.block),
+    ["b2"],
+  );
 });
 
 test("the merge requests under Links are the page's integrations, named and described as written", () => {

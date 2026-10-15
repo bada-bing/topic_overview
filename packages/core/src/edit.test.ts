@@ -68,6 +68,13 @@ test("a move carries the block's own lines", () => {
   assert.throws(() => moveBlock(PAGE, PLANT, "into", PLANT), /into itself/);
 });
 
+test("a reference to a block on another page is left to the view, and a deleted one is still refused", () => {
+  const FAR = "6a0f2c1e-0000-4000-8000-0000000000ff";
+  const pointed = replaceBlock(PAGE, PLANT, `- Plant in spring, as ((${FAR})) says`);
+  assert.match(pointed, new RegExp(`\\(\\(${FAR}\\)\\)`));
+  assert.throws(() => deleteBlock(pointed, O2), /reference broken/);
+});
+
 test("a block is deleted with everything under it, unless others refer to it", () => {
   assert.doesNotMatch(deleteBlock(PAGE, PLANT), /north/);
   assert.throws(() => deleteBlock(PAGE, O2), /reference broken/);

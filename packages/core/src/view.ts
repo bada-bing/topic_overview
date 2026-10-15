@@ -2,6 +2,7 @@
 
 import type { Attachment } from "./attachments.ts";
 import type { Discussion, Resolution } from "./discussion.ts";
+import type { ElsewhereBlock } from "./elsewhere.ts";
 import type { Page, SourceProblem } from "./page.ts";
 import type { Mark } from "./mark.ts";
 import type { Question } from "./question.ts";
@@ -16,6 +17,7 @@ export interface DiscussionView {
   branch?: string; // the branch a discussion on the source itself is on
   worktree?: string; // where that branch is checked out
   problems?: SourceProblem[]; // what the page cannot render of its source, each with the reason
+  elsewhere?: Record<string, ElsewhereBlock>; // the blocks the page refers to on other pages, by id
   marks?: Mark[]; // the blocks the agent changed that I have not confirmed seeing
   conflict?: string[]; // the files a merge from main stopped on, until it is resolved
   questions?: Question[]; // what I asked the agent about blocks, until I dismiss it

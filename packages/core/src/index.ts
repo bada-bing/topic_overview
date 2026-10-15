@@ -2,6 +2,7 @@ export * from "./attachments.ts";
 export * from "./cluster.ts";
 export * from "./discussion.ts";
 export * from "./edit.ts";
+export * from "./elsewhere.ts";
 export * from "./logseq.ts";
 export * from "./mark.ts";
 export * from "./page.ts";

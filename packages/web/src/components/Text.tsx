@@ -1,5 +1,6 @@
 import { For, Show, createSignal, useContext } from "solid-js";
 
+import type { ElsewhereBlock } from "@topic-overview/core";
 import { MENTION } from "@topic-overview/core/page";
 
 import { OpenPageContext } from "../column.ts";
@@ -57,7 +58,7 @@ function InlinePiece(props: { inline: Inline }) {
     case "page":
       return <PageLink name={inline.name} />;
     case "reference":
-      return <BlockLink target={inline.id} label={inline.id} kind="reference" />;
+      return <Reference id={inline.id} />;
     default:
       return <Mentions text={inline.text} />;
   }
@@ -96,6 +97,55 @@ function Mentions(props: { text: string }) {
 }
 
 const PREVIEW_LENGTH = 240;
+// How many of a block's children a preview lists before it says how many
+// more there are.
+const PREVIEW_CHILDREN = 12;
+
+// A reference to a block: on this page, a link to it; on another page of
+// the knowledge base, its first line, linking to its page.
+function Reference(props: { id: string }) {
+  const relate = useRelate();
+  return (
+    <Show
+      when={relate.blockText(props.id) === undefined && relate.elsewhere(props.id)}
+      fallback={<BlockLink target={props.id} label={props.id} kind="reference" />}
+    >
+      {(found) => <ElsewhereLink found={found()} />}
+    </Show>
+  );
+}
+
+// A block on another page, shown as its first line. Hovering it shows its
+// page and the first line of each block under it; clicking it opens the
+// page in the column beside, unless it is a journal, which the column does
+// not show.
+function ElsewhereLink(props: { found: ElsewhereBlock }) {
+  const openPage = useContext(OpenPageContext);
+  const first = () => props.found.block.text.split("\n")[0];
+  const children = () => props.found.block.children;
+  return (
+    <span
+      class={["reference", "elsewhere", "has-preview"]}
+      role={props.found.journal ? undefined : "link"}
+      tabindex={props.found.journal ? undefined : "0"}
+      onClick={() => {
+        if (!props.found.journal) openPage(props.found.page);
+      }}
+    >
+      {first()}
+      <span class="preview">
+        <span class="preview-property">{props.found.page}</span>
+        <span class="preview-line">{first()}</span>
+        <For each={children().slice(0, PREVIEW_CHILDREN)}>
+          {(child) => <span class="preview-line preview-child">{child.text.split("\n")[0]}</span>}
+        </For>
+        <Show when={children().length > PREVIEW_CHILDREN}>
+          <span class="preview-line preview-child">… {children().length - PREVIEW_CHILDREN} more</span>
+        </Show>
+      </span>
+    </span>
+  );
+}
 
 // A link to a block on the page. Hovering it shows the block's text, which
 // is already in the browser.

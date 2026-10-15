@@ -7,7 +7,7 @@
 // a block's own `key:: value` lines, never the page's frontmatter.
 
 import { numberByPlace } from "./logseq.ts";
-import { type Block, parsePage, sourceProblems, walk } from "./page.ts";
+import { type Block, parsePage, references, sourceProblems, walk } from "./page.ts";
 import { StoreError } from "./store.ts";
 
 export type Place = "after" | "before" | "into";
@@ -227,8 +227,14 @@ function placeAt(target: Span, place: Place): { line: number; depth: number } {
 
 // A change is refused when it leaves a reference pointing at no block that
 // it did not point at before, such as by deleting a block others refer to.
+// A reference to a block that was not on the page before the change may be
+// to a block on another page, which the view finds; the check does not look
+// for it there, so a change stays as quick as the page is short.
 function checked(before: string, after: string): string {
-  const broken = (text: string) => new Set(sourceProblems(parsePage(text)).map((problem) => problem.reason));
+  const was = new Set([...walk(parsePage(before).blocks)].map((block) => block.id));
+  const targets = [before, after].flatMap((text) => [...walk(parsePage(text).blocks)].flatMap((block) => references(block.text)));
+  const elsewhere = new Set(targets.filter((target) => !was.has(target)));
+  const broken = (text: string) => new Set(sourceProblems(parsePage(text), elsewhere).map((problem) => problem.reason));
   const known = broken(before);
   const added = [...broken(after)].filter((reason) => !known.has(reason));
   if (added.length > 0) throw new StoreError(`the change would leave a reference broken: ${added.join("; ")}`);

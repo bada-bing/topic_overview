@@ -110,22 +110,23 @@ export function validatePage(page: Page): string[] {
   return problems;
 }
 
-// What a page cannot render: a reference to a block that is not on it. Each
-// names the block holding the reference, so the page can lead to it.
+// What a page cannot render: a reference to a block that is neither on it
+// nor among the blocks found elsewhere in the knowledge base. Each names the
+// block holding the reference, so the page can lead to it.
 export interface SourceProblem {
   block: string;
   excerpt: string;
   reason: string;
 }
 
-export function sourceProblems(page: Page): SourceProblem[] {
+export function sourceProblems(page: Page, elsewhere: Set<string> = new Set()): SourceProblem[] {
   const all = [...walk(page.blocks)];
-  const ids = new Set(all.map((block) => block.id));
+  const ids = new Set([...all.map((block) => block.id), ...elsewhere]);
   const problems: SourceProblem[] = [];
   for (const block of all) {
     for (const target of references(block.text)) {
       if (!ids.has(target)) {
-        problems.push({ block: block.id, excerpt: excerpt(block.text), reason: `references ((${target})), which is not on the page` });
+        problems.push({ block: block.id, excerpt: excerpt(block.text), reason: `references ((${target})), which no block has` });
       }
     }
   }

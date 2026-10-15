@@ -62,7 +62,7 @@ it is listed in the outline with the headings inside it.
 | Bold, italic, code | `**bold**`, `*italic*`, `` `code` `` | as written |
 | Link | `[text](url)`, or a bare `https://…` | a link that opens in a new tab |
 | Link to a GitLab merge request | a link ending in `/-/merge_requests/<number>`, on a host `TOPIC_OVERVIEW_GITLAB_HOSTS` lists | the link with the request's state: open, draft, merged or closed |
-| Reference to a block | `((b7))` | a link to the block; hovering shows its text |
+| Reference to a block | `((b7))` | a link to the block; hovering shows its text. A block on another page of the knowledge base is shown by its first line, linking to its page; hovering shows the lines under it |
 | Link to another page | `[[page name]]` | hovering previews the page; clicking opens it beside |
 | Label | `R2:` at the start of a block: capitals and a number, then a colon | names the block |
 | Mention of a label | `R2` anywhere else, such as `(R2)` | a link to the labelled block |

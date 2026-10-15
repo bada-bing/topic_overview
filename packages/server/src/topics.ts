@@ -24,11 +24,14 @@ import {
   StoreError,
   type Topic,
   Topics,
+  blocksElsewhere,
   linkedMergeRequests,
   numberByPlace,
   pageLinks,
   parsePage,
+  references,
   sourceProblems,
+  walk,
 } from "@topic-overview/core";
 
 import { focusTab, openTab } from "./browser.ts";
@@ -119,7 +122,7 @@ export async function handleTopic(
     return send(response, 200, await integrationStates(integrationsOf(topic, text)));
   }
   const { topic, text } = await store().source(key);
-  send(response, 200, { ...view(topic, text), conflict: await store().conflict(key) });
+  send(response, 200, { ...(await view(topic, text)), conflict: await store().conflict(key) });
 }
 
 // What a discussion depends on outside its source: the merge requests its
@@ -132,9 +135,14 @@ function integrationsOf(topic: Topic, text: string): Integration[] {
 // blocks are numbered for the page's own addressing, and nothing is written
 // back to the source. What cannot be rendered is reported with the reason,
 // and the rest is rendered.
-function view(topic: Topic, text: string): DiscussionView {
+async function view(topic: Topic, text: string): Promise<DiscussionView> {
   const page = parsePage(text);
   numberByPlace(page.blocks);
+  // A reference to a block not on the page is looked for on the knowledge
+  // base's other pages, as the discussion's branch has them.
+  const onPage = new Set([...walk(page.blocks)].map((block) => block.id));
+  const offPage = [...walk(page.blocks)].flatMap((block) => references(block.text)).filter((target) => !onPage.has(target));
+  const elsewhere = await blocksElsewhere(store().worktree(topic.key), offPage);
   return {
     ref: { source: topic.key, startedAt: "" },
     discussion: {
@@ -153,7 +161,8 @@ function view(topic: Topic, text: string): DiscussionView {
     worktree: store().worktree(topic.key),
     marks: topic.marks ?? [],
     questions: topic.questions ?? [],
-    problems: sourceProblems(page),
+    problems: sourceProblems(page, new Set(Object.keys(elsewhere))),
+    elsewhere,
   };
 }
 

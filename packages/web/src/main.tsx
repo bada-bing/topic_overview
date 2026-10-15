@@ -176,6 +176,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     return shown && "page" in shown ? shown.page : undefined;
   };
   const blockText = (id: string) => blocks().get(id)?.text;
+  const elsewhere = (id: string) => view().elsewhere?.[id];
   const besideAsset = () => {
     const shown = beside();
     return shown && "asset" in shown ? shown.asset : undefined;
@@ -484,7 +485,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         <EditingContext value={editing}>
         <MarksContext value={marking}>
         <QuestionsContext value={asking}>
-        <RelateContext value={{ pointed, tinted, labels: labelled, blockText }}>
+        <RelateContext value={{ pointed, tinted, labels: labelled, blockText, elsewhere }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
         <CommentsContext value={comments}>

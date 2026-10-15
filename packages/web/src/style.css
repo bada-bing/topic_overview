@@ -1069,6 +1069,13 @@ main [id] {
   white-space: normal;
 }
 
+.asset-preview.above {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
 .asset-preview .block-image {
   margin: 0 auto;
   max-height: 100%;

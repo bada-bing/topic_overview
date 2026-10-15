@@ -25,3 +25,6 @@ export function useBlockIdentity(): { elementId: (id: string) => string | undefi
 
 // Opening a referenced page in the column beside.
 export const OpenPageContext = createContext<(name: string) => void>(() => {});
+
+// Opening a block that lives on another page in the column beside, by its id.
+export const OpenBlockContext = createContext<(id: string) => void>(() => {});

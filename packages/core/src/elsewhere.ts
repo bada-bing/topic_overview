@@ -8,6 +8,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
+import { numberByPlace } from "./logseq.ts";
 import { type Block, parsePage, walk } from "./page.ts";
 
 export interface ElsewhereBlock {
@@ -65,7 +66,10 @@ export async function blocksElsewhere(root: string, ids: Iterable<string>): Prom
   const byFile = new Map<string, string[]>();
   for (const [id, file] of await locate(root, wanted)) byFile.set(file, [...(byFile.get(file) ?? []), id]);
   for (const [file, ids] of byFile) {
+    // Blocks without an id are numbered by their place, as on the view's own
+    // page, so each can be told apart when shown.
     const page = parsePage(await readFile(file, "utf8"));
+    numberByPlace(page.blocks);
     for (const block of walk(page.blocks)) {
       if (ids.includes(block.id)) resolved[block.id] = { ...nameOf(file), block };
     }

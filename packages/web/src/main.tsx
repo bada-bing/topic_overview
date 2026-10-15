@@ -7,7 +7,7 @@ import type { Question } from "@topic-overview/core/question";
 import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 
 import { AttachmentList } from "./components/AttachmentList.tsx";
-import { BesideAsset, BesideAttachment, BesidePage, BesideSection } from "./components/Beside.tsx";
+import { BesideAsset, BesideAttachment, BesideBlock, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { type IntegrationState, IntegrationPanel } from "./components/IntegrationPanel.tsx";
 import { Metadata } from "./components/Metadata.tsx";
@@ -17,7 +17,7 @@ import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { headingKeys, innermost, isSection, namedPlace, outline, placeName, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
 import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
-import { OpenPageContext } from "./column.ts";
+import { OpenBlockContext, OpenPageContext } from "./column.ts";
 import { EditingContext } from "./editing.ts";
 import { MarksContext } from "./marks.ts";
 import { QuestionsContext } from "./questions.ts";
@@ -164,7 +164,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // What the column beside shows, if anything: a section or subsection of
   // this page, kept by its heading as what is open is, or another page of the
   // knowledge base.
-  type Beside = { section: string } | { page: string } | { attachment: string } | { asset: Asset };
+  type Beside = { section: string } | { page: string } | { block: string } | { attachment: string } | { asset: Asset };
   const [beside, setBeside] = createSignal<Beside | undefined>(undefined);
   const besideSection = () => {
     const shown = beside();
@@ -177,6 +177,10 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   };
   const blockText = (id: string) => blocks().get(id)?.text;
   const elsewhere = (id: string) => view().elsewhere?.[id];
+  const besideBlock = () => {
+    const shown = beside();
+    return shown && "block" in shown ? elsewhere(shown.block) : undefined;
+  };
   const besideAsset = () => {
     const shown = beside();
     return shown && "asset" in shown ? shown.asset : undefined;
@@ -487,6 +491,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         <QuestionsContext value={asking}>
         <RelateContext value={{ pointed, tinted, labels: labelled, blockText, elsewhere }}>
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
+        <OpenBlockContext value={(id: string) => setBeside({ block: id })}>
         <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
         <CommentsContext value={comments}>
         <div
@@ -563,10 +568,14 @@ function DiscussionPage(props: { base: string; live: boolean }) {
           <Show when={besidePage()} keyed>
             {(name) => <BesidePage name={name} onClose={() => setBeside(undefined)} />}
           </Show>
+          <Show when={besideBlock()} keyed>
+            {(found) => <BesideBlock found={found} onClose={() => setBeside(undefined)} />}
+          </Show>
         </div>
         <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} control={control} />
         </CommentsContext>
         </OpenAssetContext>
+        </OpenBlockContext>
         </OpenPageContext>
         </RelateContext>
         </QuestionsContext>

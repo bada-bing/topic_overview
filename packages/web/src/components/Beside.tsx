@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Errored, For, Loading, Match, Switch, createMemo, untrack } from "solid-js";
 
-import type { Attachment } from "@topic-overview/core";
+import type { Attachment, ElsewhereBlock } from "@topic-overview/core";
 import type { Block, Page } from "@topic-overview/core/page";
 
 import { ColumnContext, SourcePageContext } from "../column.ts";
@@ -48,6 +48,20 @@ export function BesideAsset(props: { asset: Asset; onClose: () => void }) {
       <div class="beside-asset">
         <AssetView asset={props.asset} />
       </div>
+    </Column>
+  );
+}
+
+// A block from another page of the knowledge base, zoomed in on: the block
+// and everything under it, as the discussion's branch has them, under its
+// page's name, which opens the whole page. A journal's date is only a name,
+// since the column does not show journals.
+export function BesideBlock(props: { found: ElsewhereBlock; onClose: () => void }) {
+  return (
+    <Column title={props.found.journal ? props.found.page : `[[${props.found.page}]]`} onClose={props.onClose}>
+      <SourcePageContext value={props.found.page}>
+        <Blocks blocks={[props.found.block]} />
+      </SourcePageContext>
     </Column>
   );
 }

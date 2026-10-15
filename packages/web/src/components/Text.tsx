@@ -3,7 +3,7 @@ import { For, Show, createSignal, useContext } from "solid-js";
 import type { ElsewhereBlock } from "@topic-overview/core";
 import { MENTION } from "@topic-overview/core/page";
 
-import { OpenPageContext } from "../column.ts";
+import { OpenBlockContext, OpenPageContext } from "../column.ts";
 import { MERGE_REQUEST, MergeRequestLink } from "./MergeRequestLink.tsx";
 import { DIAGRAM_LANGUAGES, assetsIn } from "../asset.ts";
 import { AssetChip } from "./AssetChip.tsx";
@@ -110,27 +110,24 @@ function Reference(props: { id: string }) {
       when={relate.blockText(props.id) === undefined && relate.elsewhere(props.id)}
       fallback={<BlockLink target={props.id} label={props.id} kind="reference" />}
     >
-      {(found) => <ElsewhereLink found={found()} />}
+      {(found) => <ElsewhereLink id={props.id} found={found()} />}
     </Show>
   );
 }
 
 // A block on another page, shown as its first line. Hovering it shows its
 // page and the first line of each block under it; clicking it opens the
-// page in the column beside, unless it is a journal, which the column does
-// not show.
-function ElsewhereLink(props: { found: ElsewhereBlock }) {
-  const openPage = useContext(OpenPageContext);
+// block in the column beside, zoomed in on it as Logseq does.
+function ElsewhereLink(props: { id: string; found: ElsewhereBlock }) {
+  const openBlock = useContext(OpenBlockContext);
   const first = () => props.found.block.text.split("\n")[0];
   const children = () => props.found.block.children;
   return (
     <span
       class={["reference", "elsewhere", "has-preview"]}
-      role={props.found.journal ? undefined : "link"}
-      tabindex={props.found.journal ? undefined : "0"}
-      onClick={() => {
-        if (!props.found.journal) openPage(props.found.page);
-      }}
+      role="link"
+      tabindex="0"
+      onClick={() => openBlock(props.id)}
     >
       {first()}
       <span class="preview">

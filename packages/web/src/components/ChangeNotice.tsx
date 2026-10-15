@@ -10,6 +10,7 @@ export type Change =
   | { kind: "source"; message: string }
   | { kind: "version"; message: string }
   | { kind: "linked"; page: string; message: string }
+  | { kind: "asset"; file: string } // a file of the KB's assets/ the source links to
   | { kind: "info"; message: string; files?: string[] } // files: what an update from main changed that matters here
   | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string; environment?: string; name?: string } }
   | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone"; name?: string } // what the discussion's agent is doing, and where

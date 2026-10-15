@@ -1,10 +1,11 @@
 // The routes of a discussion on the source itself, addressed by its topic's
 // key: `/api/topics/<key>` is the view, rendered from the page as it stands in
 // the discussion's worktree; `…/integrations` their states; `…/events` the
-// stream that tells the open page its source changed and what its agent is
-// doing; `…/assets/<file>` a file of the knowledge base's assets/, such as an
-// image or a markdown document, as the branch has it; `…/blocks/<id>` a block's own text, read with
-// GET and saved with PUT from the Edit button; `…/marks/<id>` deleted when I
+// stream that tells the open page its source changed, or a file of assets/
+// it links to, and what its agent is doing; `…/assets/<file>` a file of the
+// knowledge base's assets/, such as an image or a markdown document, as the
+// branch has it; `…/blocks/<id>` a block's own text, read with GET and saved
+// with PUT from the Edit button; `…/marks/<id>` deleted when I
 // confirm I saw what the agent changed in a block; `…/questions` posted to ask
 // the agent about a block, `…/questions/<id>` posted to ask further and
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
@@ -13,7 +14,7 @@
 // process's window or a page's tab up, to open a page's tab again, or to
 // start or restart a process.
 
-import { watch as watchFiles } from "node:fs";
+import { type FSWatcher, watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, extname, join } from "node:path";
@@ -226,6 +227,26 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   const watcher = watchFiles(dirname(file), (_event, name) => {
     if (name === basename(file)) changed();
   });
+  // The files of the KB's assets/ the source links to, such as a document
+  // open beside, each told by name when it changes, so the pages fetch it
+  // anew. Only those, since assets/ holds the files of every page.
+  const assetTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  let assetWatcher: FSWatcher | undefined;
+  try {
+    assetWatcher = watchFiles(join(store().worktree(key), "assets"), (_event, name) => {
+      if (!name) return;
+      linkedAssets(key).then(
+        (linked) => {
+          if (!linked.has(name)) return;
+          clearTimeout(assetTimers.get(name));
+          assetTimers.set(name, setTimeout(() => tell(watch, { kind: "asset", file: name }), SETTLE));
+        },
+        () => undefined,
+      );
+    });
+  } catch {
+    // A knowledge base without assets/ has none to watch.
+  }
   const state = `${key}.json`;
   const stateWatcher = watchFiles(store().root, (_event, name) => {
     if (name === state) changed();
@@ -310,6 +331,8 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
     clearInterval(mainPoll);
     clearInterval(integrationPoll);
     watcher.close();
+    assetWatcher?.close();
+    for (const assetTimer of assetTimers.values()) clearTimeout(assetTimer);
     stateWatcher.close();
   };
 }
@@ -320,6 +343,14 @@ async function sendAsset(response: ServerResponse, key: string, file: string | u
   const content = await readFile(join(store().worktree(key), "assets", file));
   response.writeHead(200, { "content-type": ASSET_TYPES[extname(file).toLowerCase()] ?? "application/octet-stream" });
   response.end(content);
+}
+
+// The files of the KB's assets/ the source links to, by their names there.
+const ASSET_LINK = /\]\((?:\.\.\/)?assets\/([^)\s/]+)\)/g;
+
+async function linkedAssets(key: string): Promise<Set<string>> {
+  const { text } = await store().source(key);
+  return new Set([...text.matchAll(ASSET_LINK)].map((match) => decodeURIComponent(match[1])));
 }
 
 // The files a merge changed that matter to this page: the page itself, and

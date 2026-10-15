@@ -16,7 +16,7 @@ import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { headingKeys, innermost, isSection, namedPlace, outline, placeName, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
-import { type Asset, AssetsContext, OpenAssetContext } from "./asset.ts";
+import { type Asset, AssetsContext, OpenAssetContext, assetChanged } from "./asset.ts";
 import { OpenBlockContext, OpenPageContext } from "./column.ts";
 import { EditingContext } from "./editing.ts";
 import { MarksContext } from "./marks.ts";
@@ -381,6 +381,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         return setAgent(change.state);
       }
       if (change.kind === "conflict") return setConflict(change.files);
+      if (change.kind === "asset") return assetChanged(change.file);
       if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
       // An integration's state belongs in its widget, not in a notice.

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "solid-js";
+import { createContext, createSignal, useContext } from "solid-js";
 
 import { parseText } from "./inline.ts";
 import type { Table } from "./table.ts";
@@ -66,12 +66,30 @@ export const OpenAssetContext = createContext<(asset: Asset) => void>(() => {});
 // knowledge base's assets/. A page that cannot serve its files has none.
 export const AssetsContext = createContext<string | undefined>(undefined);
 
+// A file of the knowledge base's assets/, written relative to the page as
+// Logseq does, by its name there.
+function assetFile(src: string): string | undefined {
+  const asset = /^(?:\.\.\/)?assets\/([^/]+)$/.exec(src);
+  return asset ? decodeURIComponent(asset[1]) : undefined;
+}
+
 // An asset file's address: a full URL as it is, and a file of the knowledge
-// base, written relative to the page as Logseq does, through the server.
+// base through the server, naming how many times it changed while the page
+// is open, so a change is fetched rather than read from the cache.
 export function assetSource(src: string, base: string | undefined): string | undefined {
   if (/^https?:\/\//.test(src)) return src;
-  const asset = /^(?:\.\.\/)?assets\/([^/]+)$/.exec(src);
-  return asset && base ? `${base}/${encodeURIComponent(decodeURIComponent(asset[1]))}` : undefined;
+  const file = assetFile(src);
+  if (!file || !base) return undefined;
+  const version = changes().get(file);
+  return `${base}/${encodeURIComponent(file)}${version ? `?v=${version}` : ""}`;
+}
+
+// How many times each file of assets/ changed while the page is open, as
+// the server tells it.
+const [changes, setChanges] = createSignal<ReadonlyMap<string, number>>(new Map());
+
+export function assetChanged(file: string): void {
+  setChanges((known) => new Map([...known, [file, (known.get(file) ?? 0) + 1]]));
 }
 
 export function useAssets(): string | undefined {

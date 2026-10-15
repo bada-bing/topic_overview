@@ -3,7 +3,7 @@
 // the discussion's worktree; `…/integrations` their states; `…/events` the
 // stream that tells the open page its source changed and what its agent is
 // doing; `…/assets/<file>` a file of the knowledge base's assets/, such as an
-// image, as the branch has it; `…/blocks/<id>` a block's own text, read with
+// image or a markdown document, as the branch has it; `…/blocks/<id>` a block's own text, read with
 // GET and saved with PUT from the Edit button; `…/marks/<id>` deleted when I
 // confirm I saw what the agent changed in a block; `…/questions` posted to ask
 // the agent about a block, `…/questions/<id>` posted to ask further and
@@ -62,6 +62,7 @@ const ASSET_TYPES: Record<string, string> = {
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
+  ".md": "text/markdown; charset=utf-8",
 };
 
 export async function handleTopic(

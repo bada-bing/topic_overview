@@ -1084,6 +1084,35 @@ main [id] {
   padding: 8px 0;
 }
 
+/* A markdown file of the assets, drawn as a document rather than as blocks. */
+.document {
+  white-space: normal;
+}
+
+.document-heading {
+  font-weight: 600;
+  margin: 0.8em 0 0.3em;
+}
+
+.document-heading-1 {
+  font-size: 1.3em;
+}
+
+.document-heading-2 {
+  font-size: 1.15em;
+}
+
+.document-item::before {
+  content: "•";
+  margin-right: 0.5em;
+  color: var(--muted);
+}
+
+.document-paragraph {
+  margin: 0.4em 0;
+  white-space: pre-line;
+}
+
 .heading.foldable {
   cursor: pointer;
 }

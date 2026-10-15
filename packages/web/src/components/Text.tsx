@@ -5,7 +5,7 @@ import { MENTION } from "@topic-overview/core/page";
 
 import { OpenBlockContext, OpenPageContext } from "../column.ts";
 import { MERGE_REQUEST, MergeRequestLink } from "./MergeRequestLink.tsx";
-import { DIAGRAM_LANGUAGES, assetsIn } from "../asset.ts";
+import { DIAGRAM_LANGUAGES, assetsIn, documentAsset, isDocument } from "../asset.ts";
 import { AssetChip } from "./AssetChip.tsx";
 import { AssetView } from "./AssetView.tsx";
 import { type Inline, parseText } from "../inline.ts";
@@ -48,6 +48,7 @@ function InlinePiece(props: { inline: Inline }) {
       return <code>{inline.text}</code>;
     case "link":
       if (MERGE_REQUEST.test(inline.href)) return <MergeRequestLink href={inline.href} text={inline.text} />;
+      if (isDocument(inline.href)) return <AssetChip asset={documentAsset(inline.text, inline.href)} />;
       return (
         <a href={inline.href} target="_blank" rel="noreferrer">
           {inline.text}

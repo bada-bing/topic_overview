@@ -67,7 +67,7 @@ function Document(props: { name: string; src: string }) {
   );
 }
 
-function DocumentPiece(props: { part: DocumentPart }) {
+export function DocumentPiece(props: { part: DocumentPart }) {
   const part = props.part;
   if (part.kind === "heading") {
     return (

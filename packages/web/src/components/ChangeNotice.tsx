@@ -1,5 +1,7 @@
 import { Show, createSignal } from "solid-js";
 
+import type { TranscriptEntry } from "@topic-overview/core/transcript";
+
 import { readAnswer } from "../http.ts";
 import { Banner } from "./Banner.tsx";
 import { For } from "solid-js";
@@ -14,7 +16,8 @@ export type Change =
   | { kind: "info"; message: string; files?: string[] } // files: what an update from main changed that matters here
   | { kind: "integration"; state: { id: string; state: string; detail?: string; url?: string; environment?: string; name?: string } }
   | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone"; name?: string } // what the discussion's agent is doing, and where
-  | { kind: "conflict"; files: string[] }; // the files a merge from main stopped on; none once resolved
+  | { kind: "conflict"; files: string[] } // the files a merge from main stopped on; none once resolved
+  | { kind: "transcript"; entries: TranscriptEntry[]; replace: boolean }; // what the agent's transcript holds: all of it anew, or what a write added
 
 // Only a changed source blocks the page: what it shows is out of date, and
 // the way out is refreshing the discussion from its source. A new version is

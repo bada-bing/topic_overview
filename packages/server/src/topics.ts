@@ -25,6 +25,8 @@ import {
   StoreError,
   type Topic,
   Topics,
+  type TranscriptEntry,
+  mergeTranscript,
   blocksElsewhere,
   linkedMergeRequests,
   numberByPlace,
@@ -37,6 +39,7 @@ import {
 
 import { focusTab, openTab } from "./browser.ts";
 import { INTERVALS, integrationState, integrationStates } from "./integrations.ts";
+import { KEPT, type Tail, tailTranscript } from "./transcript.ts";
 
 export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|worktree)(?:\/([^/]+))?)?$/;
 
@@ -169,8 +172,9 @@ async function view(topic: Topic, text: string): Promise<DiscussionView> {
 }
 
 // What an open discussion is watched for: its source changing in the
-// worktree, its state changing, such as by an answer, its agent's state, and
-// what is new on main. One watcher belongs
+// worktree, its state changing, such as by an answer, its agent's state and
+// what its agent says and does, read from its transcript, and what is new on
+// main. One watcher belongs
 // to the discussion, not to a page: it starts with the first page open on it
 // and stops with the last, and what it finds goes to every page open on it,
 // so no page misses what another one's check found.
@@ -178,6 +182,9 @@ interface Watch {
   pages: Set<ServerResponse>;
   agent?: string;
   agentName?: string;
+  transcript?: string; // the agent's transcript, while a Claude session runs there
+  entries: TranscriptEntry[]; // the recent part of it, for a page that joins
+  tail?: Tail;
   conflict: string;
   stop: () => void;
 }
@@ -195,7 +202,7 @@ async function subscribe(response: ServerResponse, key: string): Promise<void> {
   response.write(": connected\n\n");
   let watch = watches.get(key);
   if (!watch) {
-    watch = { pages: new Set(), conflict: "", stop: () => {} };
+    watch = { pages: new Set(), entries: [], conflict: "", stop: () => {} };
     watches.set(key, watch);
     await startWatch(key, watch);
   }
@@ -203,6 +210,7 @@ async function subscribe(response: ServerResponse, key: string): Promise<void> {
   // A page that joins learns what the others know already.
   if (watch.agent) response.write(`event: change\ndata: ${JSON.stringify({ kind: "agent", state: watch.agent, name: watch.agentName })}\n\n`);
   if (watch.conflict) response.write(`event: change\ndata: ${JSON.stringify({ kind: "conflict", files: watch.conflict.split("\n") })}\n\n`);
+  if (watch.transcript) response.write(`event: change\ndata: ${JSON.stringify({ kind: "transcript", entries: watch.entries, replace: true })}\n\n`);
   const heartbeat = setInterval(() => response.write("event: heartbeat\ndata: \n\n"), HEARTBEAT);
   const watched = watch;
   response.on("close", () => {
@@ -254,7 +262,8 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   // What the agent is doing, told when it changes, so the pages let me edit
   // only while the agent is not working.
   const askAgent = async () => {
-    const { state, name } = await store().agent(key);
+    const { state, name, transcript } = await store().agent(key);
+    if (transcript !== watch.transcript) follow(watch, transcript);
     if (state === watch.agent && name === watch.agentName) return;
     watch.agent = state;
     watch.agentName = name;
@@ -327,6 +336,7 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   const integrationPoll = setInterval(check(integrations), INTERVALS.local);
   watch.stop = () => {
     clearTimeout(timer);
+    watch.tail?.stop();
     clearInterval(agentPoll);
     clearInterval(mainPoll);
     clearInterval(integrationPoll);
@@ -335,6 +345,25 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
     for (const assetTimer of assetTimers.values()) clearTimeout(assetTimer);
     stateWatcher.close();
   };
+}
+
+// The agent's transcript followed, from the file its session's hooks leave
+// on its tmux window: what it holds goes to the pages, the recent part of it
+// whole when the session changes, and what each write adds after. A window
+// with no Claude session has no transcript, and the pages are told so.
+function follow(watch: Watch, transcript: string | undefined): void {
+  watch.tail?.stop();
+  watch.tail = undefined;
+  watch.transcript = transcript;
+  watch.entries = [];
+  if (!transcript) {
+    tell(watch, { kind: "transcript", entries: [], replace: true });
+    return;
+  }
+  watch.tail = tailTranscript(transcript, (entries, replace) => {
+    watch.entries = mergeTranscript(replace ? [] : watch.entries, entries).slice(-KEPT);
+    tell(watch, { kind: "transcript", entries: replace ? watch.entries : entries, replace });
+  });
 }
 
 // A file name only, never a path, so nothing outside assets/ is reached.

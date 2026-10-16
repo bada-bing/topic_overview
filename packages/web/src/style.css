@@ -1461,3 +1461,106 @@ button.task-discussion {
   cursor: pointer;
   text-decoration: underline dotted;
 }
+
+/* The transcript: what the agent says and does, and a field to tell it
+   something. The list scrolls; the field stays at the bottom. */
+.transcript-panel {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  height: 44vh;
+  box-sizing: border-box;
+  background: var(--code-background);
+  border-top: 1px solid var(--rule);
+  font-size: 0.9rem;
+  pointer-events: auto;
+}
+
+.transcript-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 16px;
+}
+
+.transcript-empty {
+  color: var(--muted);
+  font-style: italic;
+  margin: 4px 0;
+}
+
+.transcript-entry {
+  margin: 8px 0;
+  max-width: 960px;
+}
+
+.transcript-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.transcript-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.transcript-time {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.transcript-prompt-text {
+  white-space: pre-wrap;
+  padding: 4px 10px;
+  border-left: 3px solid var(--tint-edge);
+  background: var(--background);
+  border-radius: 0 6px 6px 0;
+}
+
+.transcript-reply-text {
+  padding: 2px 0;
+}
+
+.transcript-reply-text .document-paragraph:first-child {
+  margin-top: 0;
+}
+
+/* A tool call is one line, unfolding to what it was given and what came
+   back. */
+.transcript-tool {
+  margin: 2px 0;
+}
+
+.transcript-tool summary {
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transcript-tool-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.transcript-tool.failed .transcript-tool-name,
+.transcript-tool-failed {
+  color: #cf222e;
+}
+
+.transcript-tool-pending {
+  color: var(--now);
+}
+
+.transcript-tool pre.codeblock {
+  margin: 4px 0 6px 16px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 0.78rem;
+}

@@ -221,22 +221,24 @@ export class Topics {
     return (await this.agent(key)).state;
   }
 
-  // The agent's state, and where it runs, named as tmux names it:
-  // `<session>:<window>`.
-  async agent(key: string): Promise<{ state: AgentState; name?: string }> {
+  // The agent's state, where it runs, named as tmux names it,
+  // `<session>:<window>`, and the transcript of the Claude session running
+  // there, which its hooks leave on the window beside the state.
+  async agent(key: string): Promise<{ state: AgentState; name?: string; transcript?: string }> {
     const target = await this.agentWindow(key);
     try {
-      const format = "#{pane_current_command}\t#{@window_state}\t#{session_name}:#{window_name}";
+      const format = "#{pane_current_command}\t#{@window_state}\t#{session_name}:#{window_name}\t#{@claude_transcript}";
       const { stdout } = await run("tmux", ["display-message", "-p", "-t", target, format]);
-      const [command, state, name] = stdout.trimEnd().split("\t");
+      const [command, state, name, transcript] = stdout.trimEnd().split("\t");
       // A session that does not exist is answered with empty fields.
       if (!name || name.startsWith(":")) return { state: "gone" };
       if (command !== "claude") return { state: "gone", name };
-      return { state: state === "busy" || state === "waiting" ? state : "idle", name };
+      return { state: state === "busy" || state === "waiting" ? state : "idle", name, ...(transcript ? { transcript } : {}) };
     } catch {
       return { state: "gone" };
     }
   }
+
 
   // A block's own text, as the Edit button shows it.
   async ownText(key: string, view: string): Promise<string> {

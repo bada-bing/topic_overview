@@ -239,6 +239,15 @@ export class Topics {
     }
   }
 
+  // Tells the discussion's agent something about no block in particular, as
+  // typed into its window: the prompt itself, nothing added, so it reads as
+  // it would typed in the terminal. Nothing is kept of it: the transcript
+  // shows the prompt and what the agent makes of it. While the agent works,
+  // nothing is typed, as with asking.
+  async prompt(key: string, prompt: string): Promise<void> {
+    await this.refuseAsking(key, prompt);
+    await this.type(await this.agentWindow(key), oneLine(prompt.trim()));
+  }
 
   // A block's own text, as the Edit button shows it.
   async ownText(key: string, view: string): Promise<string> {

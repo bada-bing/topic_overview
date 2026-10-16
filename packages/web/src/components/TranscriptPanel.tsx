@@ -1,4 +1,4 @@
-import { For, Show, createEffect, onSettled, untrack } from "solid-js";
+import { For, Show, createEffect, createSignal, onSettled, untrack } from "solid-js";
 
 import type { TranscriptEntry } from "@topic-overview/core/transcript";
 
@@ -6,13 +6,19 @@ import { parseDocument } from "../document.ts";
 import { DocumentPiece } from "./AssetView.tsx";
 
 // What the discussion's agent says and does, read from its session's
-// transcript as it is written. The terminal shows the same conversation;
-// this panel is where I read it without leaving the page. What I typed and
-// what the agent replied are drawn in full,
+// transcript as it is written, and a field to tell it something about no
+// block in particular. The terminal shows the same conversation; this panel
+// is where I read it without leaving the page, and where a generic question
+// is asked from. What I typed and what the agent replied are drawn in full,
 // the reply as markdown; each tool it called is one line that unfolds to
 // what it was given and what came back. The list follows the end while I
 // am at it, and stays where I scrolled to otherwise.
-export function TranscriptPanel(props: { entries: TranscriptEntry[]; agent: string }) {
+export function TranscriptPanel(props: {
+  entries: TranscriptEntry[];
+  agent: string;
+  blocked: () => string | undefined;
+  onPrompt: (prompt: string) => Promise<void>;
+}) {
   let list: HTMLDivElement | undefined;
   let atEnd = true;
   const onScroll = () => {
@@ -38,6 +44,7 @@ export function TranscriptPanel(props: { entries: TranscriptEntry[]; agent: stri
           {(entry) => <Entry entry={entry()} />}
         </For>
       </div>
+      <PromptField blocked={props.blocked} onPrompt={props.onPrompt} />
     </section>
   );
 }
@@ -102,5 +109,48 @@ function Entry(props: { entry: TranscriptEntry }) {
         </details>
       )}
     </Show>
+  );
+}
+
+// A prompt for the agent, typed into its window as it is. Writing it is
+// always possible; sending waits until the agent is not working, as asking
+// does, and the button says why it cannot be sent yet.
+function PromptField(props: { blocked: () => string | undefined; onPrompt: (prompt: string) => Promise<void> }) {
+  const [pending, setPending] = createSignal(false);
+  const [error, setError] = createSignal<string | undefined>(undefined);
+  let field: HTMLTextAreaElement | undefined;
+  const send = () => {
+    const prompt = field?.value.trim() ?? "";
+    if (!prompt || pending() || props.blocked() !== undefined) return;
+    setPending(true);
+    setError(undefined);
+    props
+      .onPrompt(prompt)
+      .then(() => {
+        if (field) field.value = "";
+      })
+      .catch((failure: unknown) => setError(String(failure)))
+      .finally(() => setPending(false));
+  };
+  return (
+    <div class="transcript-field">
+      <textarea
+        ref={(element) => (field = element)}
+        rows={2}
+        placeholder="Tell the agent something, about no block in particular. ⌘⏎ sends it."
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            send();
+          }
+        }}
+      />
+      <div class="transcript-field-actions">
+        <button type="button" disabled={pending() || props.blocked() !== undefined} title={props.blocked() ?? "Send it to the agent"} onClick={send}>
+          {pending() ? "…" : "Send"}
+        </button>
+        <span class={["transcript-field-note", { error: error() !== undefined }]}>{error() ?? props.blocked() ?? ""}</span>
+      </div>
+    </div>
   );
 }

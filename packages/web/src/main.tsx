@@ -314,8 +314,18 @@ function DiscussionPage(props: { base: string; live: boolean }) {
 
   // What the agent says and does, read from its transcript as the server
   // tells it: all of it anew when the session changes, then what each write
-  // adds.
+  // adds. A prompt about no block in particular is typed into its window as
+  // it is, and nothing is kept of it here: the transcript shows it.
   const [transcript, setTranscript] = createSignal<TranscriptEntry[]>([]);
+  const tellAgent = async (prompt: string) => {
+    await readAnswer(
+      await fetch(`${base}/prompt`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      }),
+    );
+  };
 
   // The block a mark is on, by its id; a removed one has none.
   const blockOfMark = (mark: Mark) => (mark.id ? blocks().get(mark.id) : undefined);
@@ -589,7 +599,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                   {
                     id: "transcript",
                     label: "Transcript",
-                    content: () => <TranscriptPanel entries={transcript()} agent={agent()} />,
+                    content: () => <TranscriptPanel entries={transcript()} agent={agent()} blocked={asking.blocked} onPrompt={tellAgent} />,
                   },
                 ]
               : []),

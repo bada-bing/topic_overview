@@ -9,10 +9,11 @@
 // confirm I saw what the agent changed in a block; `…/questions` posted to ask
 // the agent about a block, `…/questions/<id>` posted to ask further and
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
-// up in the terminal; `…/worktree` posted to bring up a window working in the
-// discussion's worktree; `…/integrations/<id>` posted to bring a local
-// process's window or a page's tab up, to open a page's tab again, or to
-// start or restart a process.
+// up in the terminal; `…/prompt` posted to tell the agent something about
+// no block in particular, typed into its window as it is; `…/worktree`
+// posted to bring up a window working in the discussion's worktree;
+// `…/integrations/<id>` posted to bring a local process's window or a page's
+// tab up, to open a page's tab again, or to start or restart a process.
 
 import { type FSWatcher, watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -41,7 +42,7 @@ import { focusTab, openTab } from "./browser.ts";
 import { INTERVALS, integrationState, integrationStates } from "./integrations.ts";
 import { KEPT, type Tail, tailTranscript } from "./transcript.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|worktree)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|prompt|worktree)(?:\/([^/]+))?)?$/;
 
 // A heartbeat the page can see, so it can tell a stream that died quietly.
 const HEARTBEAT = 10_000;
@@ -98,6 +99,12 @@ export async function handleTopic(
   if (verb === "questions" && file && request.method === "DELETE") return send(response, 200, await store().dismiss(key, file));
   if (verb === "agent" && request.method === "POST") {
     await store().focusAgent(key);
+    return send(response, 200, {});
+  }
+  if (verb === "prompt" && request.method === "POST") {
+    const { prompt } = await readJson<{ prompt?: unknown }>(request);
+    if (typeof prompt !== "string") throw new StoreError("a prompt needs text");
+    await store().prompt(key, prompt);
     return send(response, 200, {});
   }
   if (verb === "integrations" && file && request.method === "POST") {

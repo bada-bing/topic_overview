@@ -27,10 +27,6 @@ const COLUMNS: [Integration["kind"], string][][] = [
   ],
 ];
 
-// Whether the panel was left open, kept per browser; a page that cannot keep
-// it opens with the panel closed.
-const OPEN = "topic-overview:integrations-open";
-
 // The icon of the system an integration lives on, such as a GitLab host's,
 // read from the origin of what it links to, so no system is named here. The
 // server fetches it once and keeps it, so it shows when the system cannot be
@@ -38,22 +34,6 @@ const OPEN = "topic-overview:integrations-open";
 function iconOf(link: string | undefined): string | undefined {
   if (!link || !/^https?:\/\//.test(link)) return undefined;
   return `/api/icon?origin=${encodeURIComponent(new URL(link).origin)}`;
-}
-
-function wasOpen(): boolean {
-  try {
-    return localStorage.getItem(OPEN) === "yes";
-  } catch {
-    return false;
-  }
-}
-
-function keepOpen(open: boolean): void {
-  try {
-    localStorage.setItem(OPEN, open ? "yes" : "no");
-  } catch {
-    // The panel opens closed next time.
-  }
 }
 
 // What the page can do with what runs: bring a local process's window or a
@@ -66,8 +46,8 @@ export interface IntegrationControl {
   blocked: () => string | undefined;
 }
 
-// What the discussion depends on outside its source, in a panel opened from
-// the bottom of the page when I want it, as wide as the page: the merge
+// What the discussion depends on outside its source, in a panel the dock
+// opens from the bottom of the page, as wide as the page: the merge
 // requests the page lists under Links, then what the agent added, each with
 // the state its system reports, kept current while the page is open. Each
 // kind is a group of its own, side by side, since each shows something else:
@@ -75,12 +55,6 @@ export interface IntegrationControl {
 // says more. A local process's name brings its window up, where its output
 // is, and a button starts it, or restarts it while it runs.
 export function IntegrationPanel(props: { integrations: Integration[]; states: Map<string, IntegrationState>; control?: IntegrationControl }) {
-  const [open, setOpen] = createSignal(wasOpen());
-  const toggle = () => {
-    const next = !open();
-    setOpen(next);
-    keepOpen(next);
-  };
   // The columns with something in them, so one alone takes the whole width.
   const columns = createMemo(() =>
     COLUMNS.map((column) =>
@@ -90,34 +64,25 @@ export function IntegrationPanel(props: { integrations: Integration[]; states: M
     ).filter((column) => column.length > 0),
   );
   return (
-    <Show when={props.integrations.length > 0}>
-      <div class="integrations">
-        <button type="button" class="integration-tab" onClick={toggle} aria-expanded={open() ? "true" : "false"}>
-          Integrations ({props.integrations.length}) {open() ? "▾" : "▴"}
-        </button>
-        <Show when={open()}>
-          <section class="integration-panel">
-            <For each={columns()} keyed={false}>
-              {(column) => (
-                <div class="integration-column">
-                  <For each={column()} keyed={(group) => group.kind}>
-                    {(group) => (
-                      <IntegrationGroup
-                        heading={group().heading}
-                        integrations={group().integrations}
-                        states={props.states}
-                        kind={group().kind}
-                        control={group().kind === "local" || group().kind === "browser" ? props.control : undefined}
-                      />
-                    )}
-                  </For>
-                </div>
+    <section class="integration-panel">
+      <For each={columns()} keyed={false}>
+        {(column) => (
+          <div class="integration-column">
+            <For each={column()} keyed={(group) => group.kind}>
+              {(group) => (
+                <IntegrationGroup
+                  heading={group().heading}
+                  integrations={group().integrations}
+                  states={props.states}
+                  kind={group().kind}
+                  control={group().kind === "local" || group().kind === "browser" ? props.control : undefined}
+                />
               )}
             </For>
-          </section>
-        </Show>
-      </div>
-    </Show>
+          </div>
+        )}
+      </For>
+    </section>
   );
 }
 

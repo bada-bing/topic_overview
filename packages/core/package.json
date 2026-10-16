@@ -7,7 +7,8 @@
     "./page": "./src/page.ts",
     "./discussion": "./src/discussion.ts",
     "./mark": "./src/mark.ts",
-    "./question": "./src/question.ts"
+    "./question": "./src/question.ts",
+    "./transcript": "./src/transcript.ts"
   },
   "scripts": {
     "test": "node --test src/*.test.ts"

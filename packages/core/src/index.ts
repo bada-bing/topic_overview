@@ -13,3 +13,4 @@ export * from "./source.ts";
 export * from "./store.ts";
 export * from "./topics.ts";
 export * from "./view.ts";
+export * from "./transcript.ts";

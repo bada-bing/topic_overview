@@ -1,8 +1,8 @@
 import { For, Show, createSignal } from "solid-js";
 
-import type { Question } from "@topic-overview/core/question";
+import { type Question, isFork } from "@topic-overview/core/question";
 
-import { standing, useQuestions } from "../questions.ts";
+import { blockedFor, standing, useQuestions } from "../questions.ts";
 import { Text } from "./Text.tsx";
 import { TextField } from "./TextField.tsx";
 
@@ -14,18 +14,22 @@ export function QuestionItem(props: { question: Question; text: string }) {
   const questions = useQuestions();
   // What the block read when I asked, as the page shows a block's text: a
   // heading without its markers.
-  const asked = () => props.question.text.replace(/^#{1,6}\s+/, "");
+  const asked = () => (props.question.text ?? "").replace(/^#{1,6}\s+/, "");
+  // A fork question never waits on the main agent.
+  const blocked = () => blockedFor(props.question, questions);
   const [asking, setAsking] = createSignal(false);
   const answered = () => props.question.exchanges.at(-1)?.answer !== undefined;
   return (
     <div class={["question", { answered: answered() }]}>
       <div class="question-top">
-        <span class="question-state-label">Question · {standing(props.question, questions.working())}</span>
+        <span class="question-state-label">
+          {isFork(props.question) ? "Question to a fork" : "Question"} · {standing(props.question, questions.working())}
+        </span>
         <button
           type="button"
           class="question-dismiss"
-          title={questions.blocked() ?? "Dismiss this question"}
-          disabled={questions.blocked() !== undefined}
+          title={blocked() ?? "Dismiss this question"}
+          disabled={blocked() !== undefined}
           onClick={() => questions.dismiss(props.question)}
         >
           ✕
@@ -71,8 +75,8 @@ export function QuestionItem(props: { question: Question; text: string }) {
             <button
               type="button"
               class="question-further"
-              title={questions.blocked() ?? "Ask further about this"}
-              disabled={questions.blocked() !== undefined}
+              title={blocked() ?? "Ask further about this"}
+              disabled={blocked() !== undefined}
               onClick={() => setAsking(true)}
             >
               Ask further

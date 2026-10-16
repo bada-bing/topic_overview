@@ -288,6 +288,18 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       );
       setQuestions([...questions(), question]);
     },
+    // A question for a fork of the main session, about a block or general;
+    // it can be asked while the agent works, which is what the fork is for.
+    askFork: async (prompt: string, block?: string) => {
+      const question = await readAnswer<Question>(
+        await fetch(`${base}/questions`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ block, prompt, fork: true }),
+        }),
+      );
+      setQuestions([...questions(), question]);
+    },
     followUp: async (question: Question, prompt: string) => {
       const asked = await readAnswer<Question>(
         await fetch(`${base}/questions/${encodeURIComponent(question.id)}`, {
@@ -309,12 +321,13 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         : agent() === "gone"
           ? "No Claude session runs in the discussion's pane, so there is nobody to ask"
           : undefined,
+    forkBlocked: () => (agent() === "gone" ? "No Claude session runs in the discussion's pane, so there is none to fork" : undefined),
     working: () => agent() === "busy",
   };
 
   // What the agent says and does, read from its transcript as the server
   // tells it: all of it anew when the session changes, then what each write
-  // adds. A prompt about no block in particular is typed into its window as
+  // adds. A general prompt is typed into its window as
   // it is, and nothing is kept of it here: the transcript shows it.
   const [transcript, setTranscript] = createSignal<TranscriptEntry[]>([]);
   const tellAgent = async (prompt: string) => {
@@ -527,7 +540,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                 <ChangeList marks={marks()} blockOf={blockOfMark} onSeen={marking.clear} />
                 <QuestionList
                   questions={questions()}
-                  blockOf={(question) => blocks().get(question.block)}
+                  blockOf={(question) => (question.block ? blocks().get(question.block) : undefined)}
                   working={asking.working()}
                 />
               </div>
@@ -599,7 +612,17 @@ function DiscussionPage(props: { base: string; live: boolean }) {
                   {
                     id: "transcript",
                     label: "Transcript",
-                    content: () => <TranscriptPanel entries={transcript()} agent={agent()} blocked={asking.blocked} onPrompt={tellAgent} />,
+                    content: () => (
+                      <TranscriptPanel
+                        entries={transcript()}
+                        agent={agent()}
+                        forks={questions().filter((question) => question.block === undefined)}
+                        blocked={asking.blocked}
+                        forkBlocked={asking.forkBlocked}
+                        onPrompt={tellAgent}
+                        onFork={asking.askFork}
+                      />
+                    ),
                   },
                 ]
               : []),

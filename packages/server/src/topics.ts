@@ -9,8 +9,8 @@
 // confirm I saw what the agent changed in a block; `…/questions` posted to ask
 // the agent about a block, `…/questions/<id>` posted to ask further and
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
-// up in the terminal; `…/prompt` posted to tell the agent something about
-// no block in particular, typed into its window as it is; `…/worktree`
+// up in the terminal; `…/prompt` posted to tell the agent something
+// general, typed into its window as it is; `…/worktree`
 // posted to bring up a window working in the discussion's worktree;
 // `…/integrations/<id>` posted to bring a local process's window or a page's
 // tab up, to open a page's tab again, or to start or restart a process.
@@ -27,6 +27,10 @@ import {
   type Topic,
   Topics,
   type TranscriptEntry,
+  fork,
+  forkModel,
+  sessionDirectory,
+  isFork,
   mergeTranscript,
   blocksElsewhere,
   linkedMergeRequests,
@@ -87,14 +91,30 @@ export async function handleTopic(
   }
   if (verb === "marks" && file && request.method === "DELETE") return send(response, 200, await store().clearMark(key, file));
   if (verb === "questions" && !file && request.method === "POST") {
-    const { block, prompt } = await readJson<{ block?: unknown; prompt?: unknown }>(request);
-    if (typeof block !== "string" || typeof prompt !== "string") throw new StoreError("a question needs a block and a prompt");
+    const { block, prompt, fork: toFork } = await readJson<{ block?: unknown; prompt?: unknown; fork?: unknown }>(request);
+    if (typeof prompt !== "string") throw new StoreError("a question needs a prompt");
+    if (block !== undefined && typeof block !== "string") throw new StoreError("a question's block is its id");
+    // A question for a fork of the main session, about a block or general,
+    // is run once it is kept; the answer lands in the state as the agent's
+    // does, and the page learns of it as it learns of any change.
+    if (toFork === true) {
+      const asked = await store().askFork(key, prompt, block);
+      answerByFork(key, asked.question.id, { from: asked.from, session: asked.question.session, prompt: asked.prompt, cwd: asked.cwd });
+      return send(response, 200, asked.question);
+    }
+    if (block === undefined) throw new StoreError("a question for the agent is about a block; a general one goes to a fork");
     return send(response, 200, await store().ask(key, block, prompt));
   }
   if (verb === "questions" && file && request.method === "POST") {
     const { prompt } = await readJson<{ prompt?: unknown }>(request);
     if (typeof prompt !== "string") throw new StoreError("a follow-up needs a prompt");
-    return send(response, 200, await store().followUp(key, file, prompt));
+    const asked = await store().followUp(key, file, prompt);
+    // A follow-up to a fork continues the fork's own session.
+    if (isFork(asked)) {
+      const transcript = (await store().agent(key)).transcript;
+      answerByFork(key, asked.id, { from: asked.session!, prompt, resume: true, cwd: transcript && (await sessionDirectory(transcript)) });
+    }
+    return send(response, 200, asked);
   }
   if (verb === "questions" && file && request.method === "DELETE") return send(response, 200, await store().dismiss(key, file));
   if (verb === "agent" && request.method === "POST") {
@@ -135,6 +155,18 @@ export async function handleTopic(
   }
   const { topic, text } = await store().source(key);
   send(response, 200, { ...(await view(topic, text)), conflict: await store().conflict(key) });
+}
+
+// Runs a fork for a question, in the background, and writes what it
+// answers to the question. A fork that fails answers with its failure, so
+// the question never waits for an answer that cannot come.
+function answerByFork(key: string, id: string, options: { from: string; session?: string; prompt: string; resume?: boolean; cwd?: string }): void {
+  fork({ ...options, model: forkModel() })
+    .then(
+      (answered) => store().answer(key, id, answered.failed ? `The fork failed: ${answered.answer || "no answer"}` : answered.answer),
+      (failure: Error) => store().answer(key, id, `The fork failed: ${failure.message}`),
+    )
+    .catch((failure: unknown) => console.error(failure));
 }
 
 // What a discussion depends on outside its source: the merge requests its

@@ -14,13 +14,16 @@ import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { randomUUID } from "node:crypto";
+import { rm as remove } from "node:fs/promises";
 
 import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session, type Tab } from "./discussion.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
 import { deploymentReference } from "./cluster.ts";
+import { sessionDirectory } from "./fork.ts";
 import { processAddress, processWindow, startProcess } from "./process.ts";
-import type { Question } from "./question.ts";
+import { type Question, isFork } from "./question.ts";
+import { claudeSession } from "./sessions.ts";
 import { StoreError } from "./store.ts";
 
 const run = promisify(execFile);
@@ -239,8 +242,8 @@ export class Topics {
     }
   }
 
-  // Tells the discussion's agent something about no block in particular, as
-  // typed into its window: the prompt itself, nothing added, so it reads as
+  // Tells the discussion's agent something general, about the topic rather
+  // than one block, as typed into its window: the prompt itself, nothing added, so it reads as
   // it would typed in the terminal. Nothing is kept of it: the transcript
   // shows the prompt and what the agent makes of it. While the agent works,
   // nothing is typed, as with asking.
@@ -309,19 +312,24 @@ export class Topics {
     await this.keep(key, question);
     await this.tellAgent(key, question, [
       `Question ${question.id} in the discussion of ${key}, about the block with id ${block}`,
-      `of ${await this.sourcePath(key)}, which reads "${clip(question.text)}": ${oneLine(prompt.trim())}`,
+      `of ${await this.sourcePath(key)}, which reads "${clip(question.text ?? "")}": ${oneLine(prompt.trim())}`,
     ]);
     return question;
   }
 
   // Asks further in a question's exchange, once its last answer has come.
   async followUp(key: string, id: string, prompt: string, now = new Date()): Promise<Question> {
-    await this.refuseAsking(key, prompt);
     const question = (await this.read(key)).questions?.find((known) => known.id === id);
     if (!question) throw new StoreError(`there is no question ${id} in the discussion of ${key}`);
+    if (isFork(question)) {
+      if (prompt.trim() === "") throw new StoreError("a question needs text");
+    } else {
+      await this.refuseAsking(key, prompt);
+    }
     if (question.exchanges.at(-1)?.answer === undefined) throw new StoreError("the question is not answered yet; ask further once it is");
     const asked = { ...question, exchanges: [...question.exchanges, { prompt: prompt.trim(), asked: now.toISOString() }] };
     await this.keep(key, asked);
+    if (isFork(question)) return asked;
     await this.tellAgent(key, asked, [
       `Follow-up to question ${id} in the discussion of ${key}, about the block with id ${question.block}:`,
       oneLine(prompt.trim()),
@@ -343,6 +351,44 @@ export class Topics {
     await this.write(topic);
     return question;
   }
+
+  // Asks a question to be answered by a fork of the main session rather than
+  // the main agent: about a block, given as the Ask button gives it, or
+  // general. The question is kept with the fork's session id, chosen here,
+  // and the server runs the fork with the prompt returned, which names the
+  // block as the main agent's prompt does. It needs a Claude session in the
+  // agent's window to fork from, busy or not; that it may be busy is the
+  // point.
+  async askFork(
+    key: string,
+    prompt: string,
+    view?: string,
+    now = new Date(),
+  ): Promise<{ question: Question; from: string; prompt: string; cwd?: string }> {
+    if (prompt.trim() === "") throw new StoreError("a question needs text");
+    const { transcript } = await this.agent(key);
+    if (!transcript) throw new StoreError("no Claude session runs in the discussion's window, so there is none to fork");
+    const from = basename(transcript, ".jsonl");
+    const cwd = await sessionDirectory(transcript);
+    let block: string | undefined;
+    if (view !== undefined) {
+      const found = locate(await readFile(await this.sourcePath(key), "utf8"), view);
+      block = found.id ?? (await this.setId(key, found.line, found.first)).id;
+    }
+    const question: Question = {
+      id: randomUUID().slice(0, 8),
+      ...(block ? { block, text: ownText(await readFile(await this.sourcePath(key), "utf8"), block) } : {}),
+      commit: await this.head(key),
+      session: randomUUID(),
+      exchanges: [{ prompt: prompt.trim(), asked: now.toISOString() }],
+    };
+    await this.keep(key, question);
+    const said = block
+      ? `About the block with id ${block} of ${await this.sourcePath(key)}, which reads "${clip(question.text ?? "")}": ${prompt.trim()}`
+      : prompt.trim();
+    return { question, from, prompt: said, ...(cwd ? { cwd } : {}) };
+  }
+
 
   private async refuseAsking(key: string, prompt: string): Promise<void> {
     if (prompt.trim() === "") throw new StoreError("a question needs text");
@@ -474,10 +520,16 @@ export class Topics {
   // A question I am done with. While the agent works, nothing is dismissed,
   // since it may be answering.
   async dismiss(key: string, id: string): Promise<Question[]> {
-    if ((await this.agentState(key)) === "busy") throw new StoreError("the agent is working; dismiss once it is done");
     const topic = await this.read(key);
+    const question = (topic.questions ?? []).find((known) => known.id === id);
+    if (question && !isFork(question) && (await this.agentState(key)) === "busy") {
+      throw new StoreError("the agent is working; dismiss once it is done");
+    }
     topic.questions = (topic.questions ?? []).filter((known) => known.id !== id);
     await this.write(topic);
+    // The fork ends with its question: its transcript is a copy of the main
+    // session's plus the exchange, and nothing else refers to it.
+    if (question?.session) await remove(claudeSession(question.session).transcript, { force: true });
     return topic.questions;
   }
 

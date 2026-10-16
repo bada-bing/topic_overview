@@ -1,9 +1,9 @@
 import { For, Show } from "solid-js";
 
 import type { Block } from "@topic-overview/core";
-import type { Question } from "@topic-overview/core/question";
+import { type Question, isFork } from "@topic-overview/core/question";
 
-import { standing, useQuestions } from "../questions.ts";
+import { blockedFor, standing, useQuestions } from "../questions.ts";
 import { excerpt } from "./ChangeList.tsx";
 import { Text } from "./Text.tsx";
 
@@ -23,16 +23,20 @@ export function QuestionList(props: { questions: Question[]; blockOf: (question:
             const state = () => standing(question, props.working);
             return (
               <div class="change-list-entry">
-                <a class={["comment-list-entry", state() === "answered" ? "question-answered" : "question-open"]} href={`#${question.block}`}>
-                  <span class="comment-list-block">{state()}</span>
+                {/* A general question is about no block, so its entry leads nowhere. */}
+                <a
+                  class={["comment-list-entry", state() === "answered" ? "question-answered" : "question-open"]}
+                  href={question.block ? `#${question.block}` : undefined}
+                >
+                  <span class="comment-list-block">{isFork(question) ? `fork · ${state()}` : state()}</span>
                   <span class="comment-list-body">{excerpt(last().prompt)}</span>
                 </a>
                 <span class={["mark-seen-wrap", "has-preview", "inline"]}>
                   <button
                     type="button"
                     class={["mark-seen", state() === "answered" ? "question-answered" : "question-open"]}
-                    title={questions.blocked()}
-                    disabled={questions.blocked() !== undefined}
+                    title={blockedFor(question, questions)}
+                    disabled={blockedFor(question, questions) !== undefined}
                     onClick={() => questions.dismiss(question)}
                   >
                     ✓

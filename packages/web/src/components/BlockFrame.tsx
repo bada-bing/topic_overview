@@ -70,10 +70,18 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
             </button>
           </Show>
           <Show when={canAsk}>
+            {/* Asking opens while either the agent or a fork of its session
+                can be asked; the field says which. */}
             <button
               type="button"
-              title={questions.blocked() ?? "Ask the agent about this block"}
-              disabled={questions.blocked() !== undefined}
+              title={
+                questions.blocked() === undefined
+                  ? "Ask the agent about this block, or a fork of its session"
+                  : questions.forkBlocked() === undefined
+                    ? `${questions.blocked()}, or ask a fork of its session now`
+                    : questions.blocked()
+              }
+              disabled={questions.blocked() !== undefined && questions.forkBlocked() !== undefined}
               onClick={() => setAsking(true)}
             >
               ?
@@ -118,9 +126,18 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
       <Show when={asking()}>
         <TextField
           action="Ask"
+          blocked={questions.blocked()}
           onSave={async (prompt) => {
             await questions.ask(props.id, prompt);
             setAsking(false);
+          }}
+          secondary={{
+            action: "Ask a fork",
+            title: questions.forkBlocked() ?? "Ask a fork of the agent's session instead, which answers while the agent works",
+            onSave: async (prompt) => {
+              await questions.askFork(prompt, props.id);
+              setAsking(false);
+            },
           }}
           onCancel={() => setAsking(false)}
         />

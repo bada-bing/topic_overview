@@ -1618,3 +1618,21 @@ button.task-discussion {
 .transcript-field-note.error {
   color: #cf222e;
 }
+
+.transcript-field-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+/* The questions a fork answers, under the list and above the field. */
+.transcript-forks {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow: auto;
+  padding: 4px 16px;
+  border-top: 1px solid var(--rule);
+}
+
+.transcript-forks .question {
+  margin: 6px 0;
+}

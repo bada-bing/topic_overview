@@ -6,4 +6,4 @@ For depth the cheatsheet does not give, read the migration guide and the design 
 
 Every dependency is pinned to an exact version and upgraded on purpose, never through a range.
 
-The format of a discussion, the files, `page.md` and attachments, is described in `docs/page-format.md`. It is what an agent writes against, so a change to the format changes that file in the same commit.
+The format of a discussion, the page and the state file beside its worktree, is described in `docs/page-format.md`. It is what an agent writes against, so a change to the format changes that file in the same commit.

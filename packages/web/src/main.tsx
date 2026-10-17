@@ -16,6 +16,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { WorkLine } from "./components/Status.tsx";
+import { TimeBox } from "./components/TimeBox.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { TranscriptPanel } from "./components/TranscriptPanel.tsx";
 import { headingKeys, innermost, isSection, namedPlace, outline, placeName, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
@@ -218,8 +219,14 @@ function DiscussionPage(props: { base: string }) {
   // blocks are not edited and changes not confirmed from the page.
   const [agent, setAgent] = createSignal<string>("idle");
   const [agentName, setAgentName] = createSignal<string | undefined>(undefined);
-  // The active work, as the server last told it.
+  // The active work, as the server last told it. The task's recorded time
+  // is read again only when the clock concerns this topic: it runs on it, or
+  // it did until now. On a topic the clock does not touch, the box stays as
+  // it was read.
   const [work, setWork] = createSignal<Work | undefined>(undefined);
+  const [timeVersion, setTimeVersion] = createSignal(0);
+  const concernsThis = (before: Work | undefined, now: Work | undefined) =>
+    [before, now].some((state) => state?.kind === "task" && state.identity === view().key);
   const workLine = () => <WorkLine work={work()} topic={view().key} />;
   // Bringing the agent's window up in the terminal, while a Claude session
   // runs the discussion.
@@ -379,7 +386,10 @@ function DiscussionPage(props: { base: string }) {
         return setAgent(change.state);
       }
       if (change.kind === "conflict") return setConflict(change.files);
-      if (change.kind === "work") return setWork(change.work);
+      if (change.kind === "work") {
+        if (concernsThis(work(), change.work)) setTimeVersion(timeVersion() + 1);
+        return setWork(change.work);
+      }
       if (change.kind === "transcript") return setTranscript(change.replace ? change.entries : mergeTranscript(transcript(), change.entries));
       if (change.kind === "asset") return assetChanged(change.file);
       if (change.kind === "linked") forgetPreview(change.page);
@@ -517,6 +527,9 @@ function DiscussionPage(props: { base: string }) {
               beside={besideSection()?.id}
               onBeside={(id) => setBeside({ section: keys().get(id) ?? id })}
             />
+            <Show when={task()}>
+              <TimeBox base={base} version={timeVersion()} />
+            </Show>
           </aside>
           <div class="content">
             <Show

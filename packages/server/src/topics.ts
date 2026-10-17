@@ -13,7 +13,8 @@
 // general, typed into its window as it is; `…/worktree`
 // posted to bring up a window working in the discussion's worktree;
 // `…/integrations/<id>` posted to bring a local process's window or a page's
-// tab up, to open a page's tab again, or to start or restart a process.
+// tab up, to open a page's tab again, or to start or restart a process;
+// `…/time` when the task was worked on, read from Timewarrior.
 
 import { type FSWatcher, watch as watchFiles } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -29,6 +30,7 @@ import {
   type TranscriptEntry,
   type Work,
   activeWork,
+  taskTime,
   fork,
   forkModel,
   sessionDirectory,
@@ -48,7 +50,7 @@ import { focusTab, openTab } from "./browser.ts";
 import { INTERVALS, integrationState, integrationStates } from "./integrations.ts";
 import { KEPT, type Tail, tailTranscript } from "./transcript.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|prompt|worktree)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|prompt|worktree|time)(?:\/([^/]+))?)?$/;
 
 // A heartbeat the page can see, so it can tell a stream that died quietly.
 const HEARTBEAT = 10_000;
@@ -121,6 +123,10 @@ export async function handleTopic(
     return send(response, 200, asked);
   }
   if (verb === "questions" && file && request.method === "DELETE") return send(response, 200, await store().dismiss(key, file));
+  if (verb === "time" && request.method === "GET") {
+    await store().read(key);
+    return send(response, 200, await taskTime(key));
+  }
   if (verb === "agent" && request.method === "POST") {
     await store().focusAgent(key);
     return send(response, 200, {});

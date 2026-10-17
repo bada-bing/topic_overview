@@ -1534,3 +1534,54 @@ button.task-discussion {
   gap: 12px;
   align-items: baseline;
 }
+
+/* When the task was worked on: the total in the heading, then a row per
+   day, newest first, the running day marked. */
+.time-box h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.time-total {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-day {
+  display: flex;
+  gap: 8px;
+  padding: 2px 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-date {
+  flex: 1;
+}
+
+.time-day.open .time-minutes {
+  color: var(--now);
+}
+
+.time-count {
+  font-size: 0.9em;
+  min-width: 70px;
+  text-align: right;
+}
+
+/* A day's intervals, shown while the pointer is on the day. */
+.time-spans {
+  width: auto;
+  min-width: 180px;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-span {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.time-span.open .time-span-minutes {
+  color: var(--now);
+}

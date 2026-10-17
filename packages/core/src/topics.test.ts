@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 
-import { StoreError } from "./store.ts";
+import { StoreError } from "./errors.ts";
 import { Topics } from "./topics.ts";
 
 const PAGE = `- # KEY_1 Grow vegetables

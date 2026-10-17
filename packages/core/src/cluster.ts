@@ -4,7 +4,7 @@
 // name is known by its cluster's name, the last part of a GKE context, which
 // is named gke_<project>_<location>_<cluster>.
 
-import { StoreError } from "./store.ts";
+import { StoreError } from "./errors.ts";
 
 // Each configured context, with the name of its environment.
 export function kubeContexts(): Map<string, string> {

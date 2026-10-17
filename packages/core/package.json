@@ -5,7 +5,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./page": "./src/page.ts",
-    "./discussion": "./src/discussion.ts",
     "./mark": "./src/mark.ts",
     "./question": "./src/question.ts",
     "./transcript": "./src/transcript.ts"

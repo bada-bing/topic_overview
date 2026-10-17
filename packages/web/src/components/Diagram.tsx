@@ -49,7 +49,7 @@ export function Diagram(props: { language: string; source: string }) {
   const report = useProblems();
   let container: HTMLDivElement | undefined;
 
-  // The source may still be loading, as an attachment's is; the effect waits
+  // The source may still be loading; the effect waits
   // for it, then draws into the container.
   createEffect(
     () => ({ language: props.language, source: props.source }),

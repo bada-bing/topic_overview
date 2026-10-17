@@ -1,8 +1,8 @@
-// page.md: the content of a discussion, as a nested markdown list in Logseq's
+// The page: the content of a discussion, as a nested markdown list in Logseq's
 // conventions. A block is a bullet; its id is an `id::` property on the line
 // after it, and a relation to another block is written `((id))`.
 
-import type { Integration } from "./discussion.ts";
+import type { Integration } from "./integration.ts";
 
 export type BlockKind = "heading" | "block";
 
@@ -87,27 +87,6 @@ export function* walk(blocks: Block[]): Generator<Block> {
 export function references(text: string): string[] {
   const prose = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
   return [...prose.matchAll(REFERENCE)].map((match) => match[1]);
-}
-
-// A page is valid when every block has an id, no id repeats, and every
-// reference names a block on the page. Each problem is reported, not only
-// the first, so a malformed page is refused with all of its reasons.
-export function validatePage(page: Page): string[] {
-  const problems: string[] = [];
-  const ids = new Set<string>();
-  const all = [...walk(page.blocks)];
-
-  for (const block of all) {
-    if (!block.id) problems.push(`a block has no id: "${excerpt(block.text)}"`);
-    else if (ids.has(block.id)) problems.push(`the id ${block.id} is used more than once`);
-    else ids.add(block.id);
-  }
-  for (const block of all) {
-    for (const target of references(block.text)) {
-      if (!ids.has(target)) problems.push(`block ${block.id || "without id"} references ${target}, which is not on the page`);
-    }
-  }
-  return problems;
 }
 
 // What a page cannot render: a reference to a block that is neither on it

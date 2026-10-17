@@ -16,15 +16,15 @@ import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 import { rm as remove } from "node:fs/promises";
 
-import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Session, type Tab } from "./discussion.ts";
+import { INTEGRATION_KINDS, type Integration, type IntegrationKind, type Tab } from "./integration.ts";
 import { blockName, idAt, locate, ownText, removeId, replaceBlock, setId, withOwnText } from "./edit.ts";
 import { type Mark, markKey } from "./mark.ts";
 import { deploymentReference } from "./cluster.ts";
 import { sessionDirectory } from "./fork.ts";
 import { processAddress, processWindow, startProcess } from "./process.ts";
 import { type Question, isFork } from "./question.ts";
-import { claudeSession } from "./sessions.ts";
-import { StoreError } from "./store.ts";
+import { type Session, claudeSession } from "./sessions.ts";
+import { StoreError } from "./errors.ts";
 
 const run = promisify(execFile);
 const KEY = /^[A-Za-z0-9][\w.-]*$/;

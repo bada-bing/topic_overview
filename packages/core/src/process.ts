@@ -8,7 +8,7 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
-import { StoreError } from "./store.ts";
+import { StoreError } from "./errors.ts";
 
 const run = promisify(execFile);
 

@@ -1,6 +1,6 @@
 import { Show, createSignal } from "solid-js";
 
-// A field for writing a comment, a question or a block's text. Ctrl or Cmd
+// A field for writing a question or a block's text. Ctrl or Cmd
 // with Enter saves it, Escape cancels it. A second action, such as asking a
 // fork rather than the agent, is a second button, and Shift with the keys.
 export function TextField(props: {
@@ -22,7 +22,7 @@ export function TextField(props: {
     if (props.blocked === undefined) submit(props.onSave);
   };
   return (
-    <div class="comment-field">
+    <div class="text-field">
       <textarea
         ref={(element) => {
           field = element;
@@ -38,7 +38,7 @@ export function TextField(props: {
           if (event.key === "Escape") props.onCancel();
         }}
       />
-      <div class="comment-field-actions">
+      <div class="text-field-actions">
         <button type="button" disabled={props.blocked !== undefined} title={props.blocked} onClick={save}>
           {props.action ?? "Save"}
         </button>

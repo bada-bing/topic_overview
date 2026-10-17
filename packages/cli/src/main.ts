@@ -15,20 +15,14 @@ import { list } from "./commands/list.ts";
 import { move } from "./commands/move.ts";
 import { open } from "./commands/open.ts";
 import { replace } from "./commands/replace.ts";
-import { resume } from "./commands/resume.ts";
 import { setId } from "./commands/set-id.ts";
 import { setPropertyCommand } from "./commands/set-property.ts";
-import { save } from "./commands/save.ts";
-import { status } from "./commands/status.ts";
 import { type Context, context } from "./context.ts";
 
 const COMMANDS: Record<string, (args: string[], context: Context) => Promise<void>> = {
   open,
-  resume,
   close,
-  save,
   list,
-  status,
   integration,
   replace,
   insert,
@@ -48,7 +42,6 @@ function readArgs() {
       allowPositionals: true,
       options: {
         session: { type: "string" },
-        from: { type: "string" },
         label: { type: "string" },
         after: { type: "string" },
         before: { type: "string" },
@@ -76,7 +69,7 @@ if (!command) {
 }
 
 Promise.resolve()
-  .then(() => command(args, context(values.session, values.from, values.label, { after: values.after, before: values.before, into: values.into }, { line: values.line, text: values.text, nil: values.nil, discard: values.discard })))
+  .then(() => command(args, context(values.session, values.label, { after: values.after, before: values.before, into: values.into }, { line: values.line, text: values.text, nil: values.nil, discard: values.discard })))
   .catch((error: unknown) => {
     console.error(error instanceof StoreError ? error.message : error);
     process.exit(1);

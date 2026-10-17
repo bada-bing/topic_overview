@@ -1,4 +1,4 @@
-// Converts a Logseq page into page.md. A block keeps the id Logseq gave it
+// Converts a Logseq page into the page format. A block keeps the id Logseq gave it
 // with `id::`, so `((uuid))` references still resolve; every other block is
 // numbered by its position, b1 to bn.
 

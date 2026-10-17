@@ -8,7 +8,7 @@
 
 import { numberByPlace } from "./logseq.ts";
 import { type Block, parsePage, references, sourceProblems, walk } from "./page.ts";
-import { StoreError } from "./store.ts";
+import { StoreError } from "./errors.ts";
 
 export type Place = "after" | "before" | "into";
 

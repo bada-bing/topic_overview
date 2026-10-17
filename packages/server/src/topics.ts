@@ -188,25 +188,18 @@ async function view(topic: Topic, text: string): Promise<DiscussionView> {
   const offPage = [...walk(page.blocks)].flatMap((block) => references(block.text)).filter((target) => !onPage.has(target));
   const elsewhere = await blocksElsewhere(store().worktree(topic.key), offPage);
   return {
-    ref: { source: topic.key, startedAt: "" },
-    discussion: {
-      source: topic.page,
-      opened: topic.opened,
-      closed: null,
-      version: 1,
-      sessions: topic.session ? [topic.session] : [],
-      integrations: integrationsOf(topic, text),
-      annotations: [],
-    },
-    page,
-    attachments: [],
-    earlier: [],
+    key: topic.key,
+    source: topic.page,
     branch: topic.branch,
     worktree: store().worktree(topic.key),
-    marks: topic.marks ?? [],
-    questions: topic.questions ?? [],
+    opened: topic.opened,
+    ...(topic.session ? { session: topic.session } : {}),
+    integrations: integrationsOf(topic, text),
+    page,
     problems: sourceProblems(page, new Set(Object.keys(elsewhere))),
     elsewhere,
+    marks: topic.marks ?? [],
+    questions: topic.questions ?? [],
   };
 }
 
@@ -269,7 +262,7 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
   const file = join(store().worktree(key), topic.page);
   const changed = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => tell(watch, { kind: "version", message: "The source changed." }), SETTLE);
+    timer = setTimeout(() => tell(watch, { kind: "source" }), SETTLE);
   };
   const watcher = watchFiles(dirname(file), (_event, name) => {
     if (name === basename(file)) changed();

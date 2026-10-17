@@ -3,11 +3,10 @@ import { For } from "solid-js";
 import type { Table } from "../table.ts";
 import { Text } from "./Text.tsx";
 
-// A markdown table, its cells rendered as text, whether it is written in a
-// block or kept as an attachment.
+// A markdown table, its cells rendered as text.
 export function TableView(props: { table: Table }) {
   return (
-    <table class="attachment-table">
+    <table class="markdown-table">
       <thead>
         <tr>
           <For each={props.table.header}>{(cell) => <th><Text text={cell} /></th>}</For>

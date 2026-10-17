@@ -26,7 +26,7 @@ export function excerpt(text: string): string {
 export function ChangeList(props: { marks: Mark[]; blockOf: (mark: Mark) => Block | undefined; onSeen: (mark: Mark) => void }) {
   return (
     <Show when={props.marks.length > 0}>
-      <section class="comment-list change-list">
+      <section class="list-box change-list">
         <h3>Changes ({props.marks.length})</h3>
         <For each={props.marks}>
           {(mark) => (
@@ -37,24 +37,24 @@ export function ChangeList(props: { marks: Mark[]; blockOf: (mark: Mark) => Bloc
                   <Show
                     when={mark.next ?? mark.parent}
                     fallback={
-                      <span class={["comment-list-entry", "change-removed"]}>
-                        <span class="comment-list-block">{saidOf(mark)}</span>
-                        <span class="comment-list-body change-gone">{excerpt(mark.text ?? "")}</span>
+                      <span class={["list-entry", "change-removed"]}>
+                        <span class="list-entry-block">{saidOf(mark)}</span>
+                        <span class="list-entry-body change-gone">{excerpt(mark.text ?? "")}</span>
                       </span>
                     }
                   >
                     {(place) => (
-                      <a class={["comment-list-entry", "change-removed"]} href={`#${place()}`}>
-                        <span class="comment-list-block">{saidOf(mark)}</span>
-                        <span class="comment-list-body change-gone">{excerpt(mark.text ?? "")}</span>
+                      <a class={["list-entry", "change-removed"]} href={`#${place()}`}>
+                        <span class="list-entry-block">{saidOf(mark)}</span>
+                        <span class="list-entry-body change-gone">{excerpt(mark.text ?? "")}</span>
                       </a>
                     )}
                   </Show>
                 }
               >
-                <a class={["comment-list-entry", `change-${mark.kind}`]} href={`#${props.blockOf(mark)?.id ?? ""}`}>
-                  <span class="comment-list-block">{saidOf(mark)}</span>
-                  <span class="comment-list-body">{excerpt(props.blockOf(mark)?.text ?? mark.text ?? "")}</span>
+                <a class={["list-entry", `change-${mark.kind}`]} href={`#${props.blockOf(mark)?.id ?? ""}`}>
+                  <span class="list-entry-block">{saidOf(mark)}</span>
+                  <span class="list-entry-body">{excerpt(props.blockOf(mark)?.text ?? mark.text ?? "")}</span>
                 </a>
               </Show>
               <MarkSeen mark={mark} onSeen={() => props.onSeen(mark)} inline />

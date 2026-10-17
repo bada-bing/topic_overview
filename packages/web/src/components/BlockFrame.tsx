@@ -1,11 +1,9 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show, createSignal, useContext } from "solid-js";
 
-import type { Annotation } from "@topic-overview/core";
 import { LABEL } from "@topic-overview/core/page";
 
 import { SourcePageContext } from "../column.ts";
-import { useComments } from "../comments.ts";
 import { useEditing } from "../editing.ts";
 import { useMarks } from "../marks.ts";
 import { useQuestions } from "../questions.ts";
@@ -16,22 +14,17 @@ import { TextField } from "./TextField.tsx";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // Everything around a block's content: the gutter with its name and the
-// Edit, Ask, Comment and Copy buttons, which show when I point at the block and
-// never cover its text; the badge of its comments; and the field for a new
-// one. Editing puts the block's own text in a field in place of its content.
+// Edit, Ask and Copy buttons, which show when I point at the block and never
+// cover its text. Editing puts the block's own text in a field in place of
+// its content.
 // A block the agent changed is marked, with a tint and a border, until I
 // confirm I saw it with the check in its gutter, or open it to edit. The
 // questions I asked about the block are under it until I dismiss them.
 // A block is named by its label, such as R2, when it has one, and by its id
 // otherwise.
 export function BlockFrame(props: { id: string; text: string; children: JSX.Element }) {
-  const comments = useComments();
   const linkedPage = useContext(SourcePageContext);
-  const [writing, setWriting] = createSignal(false);
-  const [pinned, setPinned] = createSignal(false);
   let content: HTMLDivElement | undefined;
-  const own = () => (linkedPage ? [] : comments.of(props.id));
-  const canComment = () => !linkedPage && !comments.readOnly();
   // A Logseq id is a UUID, too long for the gutter, so it shows its start;
   // the whole id is in the title.
   const name = () => LABEL.exec(props.text)?.[1] ?? (UUID.test(props.id) ? props.id.slice(0, 8) : props.id);
@@ -87,11 +80,6 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
               ?
             </button>
           </Show>
-          <Show when={canComment()}>
-            <button type="button" title="Comment on this block" onClick={() => setWriting(true)}>
-              💬
-            </button>
-          </Show>
           <button type="button" title="Copy the text of this block" onClick={() => copy(content?.innerText ?? "")}>
             ⧉
           </button>
@@ -140,66 +128,6 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
             },
           }}
           onCancel={() => setAsking(false)}
-        />
-      </Show>
-      <Show when={own().length > 0}>
-        <div class={["comment-badge", { pinned: pinned() }]}>
-          <button type="button" class="badge" onClick={() => setPinned(!pinned())}>
-            {own().length === 1 ? "1 comment" : `${own().length} comments`}
-          </button>
-          <div class="comment-popover">
-            <For each={own()}>{(annotation) => <CommentItem annotation={annotation} pinned={pinned()} />}</For>
-          </div>
-        </div>
-      </Show>
-      <Show when={writing()}>
-        <TextField
-          onSave={async (body) => {
-            await comments.add(props.id, body);
-            setWriting(false);
-          }}
-          onCancel={() => setWriting(false)}
-        />
-      </Show>
-    </div>
-  );
-}
-
-function CommentItem(props: { annotation: Annotation; pinned: boolean }) {
-  const comments = useComments();
-  const [editing, setEditing] = createSignal(false);
-  return (
-    <div class="comment">
-      <Show
-        when={editing()}
-        fallback={
-          <>
-            <div class="comment-body">{props.annotation.body}</div>
-            <Show when={props.pinned}>
-              <div class="comment-actions">
-                <button type="button" onClick={() => copy(props.annotation.body)}>
-                  Copy
-                </button>
-                <Show when={!comments.readOnly()}>
-                  <button type="button" onClick={() => setEditing(true)}>
-                    Edit
-                  </button>
-                  <button type="button" onClick={() => comments.remove(props.annotation.id)}>
-                    Delete
-                  </button>
-                </Show>
-              </div>
-            </Show>
-          </>
-        }
-      >
-        <TextField
-          initial={props.annotation.body}
-          onSave={async (body) => {
-            await comments.edit(props.annotation.id, body);
-            setEditing(false);
-          }}
-          onCancel={() => setEditing(false)}
         />
       </Show>
     </div>

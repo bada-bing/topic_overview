@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { deleteBlock, headingsAbove, placeOfDeleted, idAt, propertyOf, insertBlock, locate, moveBlock, ownText, replaceBlock, setId, setProperty, withOwnText } from "./edit.ts";
-import { StoreError } from "./store.ts";
+import { StoreError } from "./errors.ts";
 
 const O1 = "6a0f2c1e-0000-4000-8000-000000000001";
 const O2 = "6a0f2c1e-0000-4000-8000-000000000002";

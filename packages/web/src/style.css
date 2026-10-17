@@ -430,7 +430,7 @@ main [id] {
   scroll-margin-top: 120px;
 }
 
-/* A block's frame: the gutter to its left, its content, its comments. The
+/* A block's frame: the gutter to its left, its content, its questions. The
    frame reaches into the gutter, so moving from the text to a button never
    leaves the block, and the gutter's buttons stay while the pointer is on
    them. */
@@ -492,63 +492,14 @@ main [id] {
   background: var(--code-background);
 }
 
-.comment-badge {
-  position: relative;
-  display: inline-block;
-  margin: 0 0 4px;
-}
-
-.badge {
-  all: unset;
-  cursor: pointer;
-  font-size: 0.75rem;
-  color: var(--now);
-  border: 1px solid var(--now);
-  border-radius: 10px;
-  padding: 0 8px;
-}
-
-.comment-popover {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 6;
-  width: 380px;
-  margin-top: 4px;
-  padding: 8px 10px;
-  background: var(--background);
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
-  font-size: 0.9rem;
-}
-
-.comment-badge:hover .comment-popover,
-.comment-badge.pinned .comment-popover {
-  display: block;
-}
-
-.comment + .comment {
-  border-top: 1px solid var(--rule);
-  margin-top: 6px;
-  padding-top: 6px;
-}
-
-.comment-body {
-  white-space: pre-wrap;
-}
-
-.comment-actions,
-.comment-field-actions {
+.text-field-actions {
   display: flex;
   gap: 8px;
   margin-top: 4px;
   align-items: baseline;
 }
 
-.comment-actions button,
-.comment-field-actions button {
+.text-field-actions button {
   font: inherit;
   font-size: 0.8rem;
   cursor: pointer;
@@ -559,11 +510,11 @@ main [id] {
   padding: 1px 8px;
 }
 
-.comment-field {
+.text-field {
   margin: 4px 0 8px;
 }
 
-.comment-field textarea {
+.text-field textarea {
   width: 100%;
   box-sizing: border-box;
   font: inherit;
@@ -574,19 +525,19 @@ main [id] {
   padding: 6px 8px;
 }
 
-.comment-list {
+.list-box {
   margin-top: 24px;
   border-top: 1px solid var(--rule);
   padding-top: 8px;
   font-size: 0.85em;
 }
 
-.comment-list h3 {
+.list-box h3 {
   font-size: 1em;
   margin: 0 0 6px;
 }
 
-.comment-list-entry {
+.list-entry {
   display: flex;
   flex-direction: column;
   text-decoration: none;
@@ -594,16 +545,16 @@ main [id] {
   border-radius: 4px;
 }
 
-.comment-list-entry:hover {
+.list-entry:hover {
   background: var(--code-background);
 }
 
-.comment-list-block {
+.list-entry-block {
   color: var(--muted);
   font-size: 0.9em;
 }
 
-.comment-list-body {
+.list-entry-body {
   color: var(--text);
 }
 
@@ -624,102 +575,20 @@ main [id] {
   margin: 4px 0;
 }
 
-.attachment-list {
-  margin-top: 24px;
-  border-top: 1px solid var(--rule);
-  padding-top: 8px;
-  font-size: 0.85em;
-}
-
-.attachment-list h3 {
-  font-size: 1em;
-  margin: 0 0 6px;
-}
-
-.attachment-list-entry {
-  all: unset;
-  cursor: pointer;
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 3px 6px;
-  border-radius: 4px;
-}
-
-.attachment-list-entry:hover,
-.attachment-list-entry.current {
-  background: var(--code-background);
-}
-
-.attachment-kind {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.8em;
-  color: var(--muted);
-  min-width: 56px;
-}
-
-.attachment-origin {
-  color: var(--muted);
-  font-size: 0.85em;
-  margin-bottom: 8px;
-}
-
-.attachment-image {
-  max-width: 100%;
-}
-
-.attachment-table {
+.markdown-table {
   border-collapse: collapse;
   font-size: 0.9em;
 }
 
-.attachment-table th,
-.attachment-table td {
+.markdown-table th,
+.markdown-table td {
   border: 1px solid var(--rule);
   padding: 4px 8px;
   text-align: left;
 }
 
-.attachment-table th {
+.markdown-table th {
   background: var(--code-background);
-}
-
-/* A change from outside covers the page, so nothing but reloading is done
-   on content that is out of date. */
-.change-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(0 0 0 / 55%);
-}
-
-.change-notice {
-  max-width: 460px;
-  padding: 20px 24px;
-  background: var(--background);
-  border: 1px solid var(--now);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
-}
-
-.change-consequence {
-  color: var(--muted);
-  font-size: 0.9em;
-}
-
-.change-notice button {
-  font: inherit;
-  cursor: pointer;
-  padding: 4px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--now);
-  background: var(--now-tint);
-  color: var(--text);
 }
 
 /* Changes that are information sit in a corner, never over the content. */
@@ -1242,7 +1111,7 @@ main [id] {
   text-decoration-color: var(--muted);
 }
 
-.change-list .comment-list-entry {
+.change-list .list-entry {
   border-left: 3px solid var(--mark-colour);
 }
 
@@ -1257,19 +1126,19 @@ main [id] {
   border-radius: 6px;
 }
 
-.agent-box .comment-list {
+.agent-box .list-box {
   margin-top: 0;
   border-top: none;
   padding-top: 0;
 }
 
-.agent-box .comment-list + .comment-list {
+.agent-box .list-box + .list-box {
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--tint-edge);
 }
 
-.change-list .comment-list-entry:hover {
+.change-list .list-entry:hover {
   background: var(--background);
 }
 
@@ -1279,7 +1148,7 @@ main [id] {
   gap: 6px;
 }
 
-.change-list-entry > .comment-list-entry {
+.change-list-entry > .list-entry {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1308,8 +1177,8 @@ main [id] {
 }
 
 /* An entry with no place to lead to is not a link, and does not look like one. */
-.change-list span.comment-list-entry,
-.change-list span.comment-list-entry:hover {
+.change-list span.list-entry,
+.change-list span.list-entry:hover {
   background: none;
   cursor: default;
 }
@@ -1437,7 +1306,7 @@ main [id] {
   --mark-colour: var(--question);
 }
 
-.change-list .comment-list-entry.question-open {
+.change-list .list-entry.question-open {
   border-left-style: dashed;
 }
 

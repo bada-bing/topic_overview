@@ -7,8 +7,7 @@ import type { Question } from "@topic-overview/core/question";
 import { type TranscriptEntry, mergeTranscript } from "@topic-overview/core/transcript";
 import { excerpt, labels, relations, walk } from "@topic-overview/core/page";
 
-import { AttachmentList } from "./components/AttachmentList.tsx";
-import { BesideAsset, BesideAttachment, BesideBlock, BesidePage, BesideSection } from "./components/Beside.tsx";
+import { BesideAsset, BesideBlock, BesidePage, BesideSection } from "./components/Beside.tsx";
 import { Blocks } from "./components/Blocks.tsx";
 import { Dock } from "./components/Dock.tsx";
 import { type IntegrationState, IntegrationPanel } from "./components/IntegrationPanel.tsx";
@@ -25,12 +24,10 @@ import { EditingContext } from "./editing.ts";
 import { MarksContext } from "./marks.ts";
 import { QuestionsContext } from "./questions.ts";
 import { ProblemsContext } from "./problems.ts";
-import { CommentsContext, changeComments } from "./comments.ts";
 import { ChangeList } from "./components/ChangeList.tsx";
 import { QuestionList } from "./components/QuestionList.tsx";
-import { CommentList } from "./components/CommentList.tsx";
 import { ConflictBanner } from "./components/ConflictBanner.tsx";
-import { type BlockingChange, type Change, ChangeNotice, type Notice, Notices, isBlocking } from "./components/ChangeNotice.tsx";
+import { type Change, type Notice, Notices } from "./components/Notices.tsx";
 import { readAnswer } from "./http.ts";
 import { forgetPreview } from "./previews.ts";
 import { RelateContext, relatedTo } from "./relate.ts";
@@ -38,9 +35,8 @@ import { reuse } from "./reuse.ts";
 import { frontmatter, taskHeader } from "./task.ts";
 import "./style.css";
 
-// A discussion on a copy is `/d/<source>/<started-at>`; one on the source
-// itself, in a worktree, is `/d/<key>`.
-const ROUTE = /^\/d\/([^/]+)(?:\/([^/]+))?\/?$/;
+// A discussion is `/d/<key>`, the key of the topic it is on.
+const ROUTE = /^\/d\/([^/]+)\/?$/;
 // Section 0, the metadata, folds and is listed like any other section, under
 // a key no block has.
 const METADATA = "metadata";
@@ -61,9 +57,8 @@ async function fetchDiscussion(base: string): Promise<DiscussionView> {
   return readAnswer<DiscussionView>(await fetch(base));
 }
 
-// `base` is where the discussion is asked for; `live` says it is on the source
-// itself, where comments are not kept.
-function DiscussionPage(props: { base: string; live: boolean }) {
+// `base` is where the discussion is asked for.
+function DiscussionPage(props: { base: string }) {
   const view = createMemo(() => fetchDiscussion(props.base));
   // The page as it is drawn: new content with every block that did not
   // change kept as it was, so only what changed is drawn again.
@@ -84,11 +79,10 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const entries = createMemo(() => [{ id: METADATA, text: "Metadata", depth: 0 }, ...outline(page().blocks)]);
   const owners = createMemo(() => new Map([[METADATA, METADATA], ...sectionOf(page().blocks)]));
   const task = createMemo(() => taskHeader(page()));
-  // An attachment relates to the blocks it is about, so pointing at it
-  // highlights them.
+  // A reported problem relates to the block it is about, so pointing at it
+  // highlights the block.
   const forward = createMemo(() => {
     const related = relations(page());
-    for (const attachment of view().attachments) related.set(`attachment:${attachment.id}`, new Set(attachment.blocks));
     problems().forEach((problem, index) => related.set(problemKey(index), new Set([problem.block])));
     return related;
   });
@@ -119,13 +113,9 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     const id = (event.target as Element).closest?.("[data-block]")?.getAttribute("data-block") ?? undefined;
     if (id !== pointed()) setPointed(id);
   };
-  // A discussion on the source itself has no versions, only its branch.
-  // A discussion on the source is named by the Claude session it belongs to,
-  // as tmux names it, and what that session is doing; a copy by its version.
-  const discussionLine = () =>
-    view().branch
-      ? [agentName(), AGENT_STATES[agent()] ?? agent()].filter(Boolean).join(" · ")
-      : `version ${view().discussion.version}${view().discussion.closed ? " · closed" : ""}`;
+  // The discussion is named by the Claude session it belongs to, as tmux
+  // names it, and what that session is doing.
+  const discussionLine = () => [agentName(), AGENT_STATES[agent()] ?? agent()].filter(Boolean).join(" · ");
   const blocks = createMemo(() => new Map([...walk(page().blocks)].map((block) => [block.id, block])));
   // The metadata folds as a section of its own, ahead of the page's; its
   // content is no block, so a stand-in makes it one that folds.
@@ -167,7 +157,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // What the column beside shows, if anything: a section or subsection of
   // this page, kept by its heading as what is open is, or another page of the
   // knowledge base.
-  type Beside = { section: string } | { page: string } | { block: string } | { attachment: string } | { asset: Asset };
+  type Beside = { section: string } | { page: string } | { block: string } | { asset: Asset };
   const [beside, setBeside] = createSignal<Beside | undefined>(undefined);
   const besideSection = () => {
     const shown = beside();
@@ -188,26 +178,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
     const shown = beside();
     return shown && "asset" in shown ? shown.asset : undefined;
   };
-  const besideAttachment = () => {
-    const shown = beside();
-    return shown && "attachment" in shown ? view().attachments.find((attachment) => attachment.id === shown.attachment) : undefined;
-  };
-
-  // The comments, as the server last answered with them. Every change goes
-  // to the server, which answers with the comments as they now are.
-  const [annotations, setAnnotations] = createSignal(() => view().discussion.annotations);
   const base = props.base;
-  const change = (method: "POST" | "PATCH" | "DELETE", id: string | undefined, body?: unknown) =>
-    changeComments(base, method, id, body).then((next) => {
-      setAnnotations(next);
-    });
-  const comments = {
-    readOnly: () => props.live || view().discussion.closed !== null,
-    of: (block: string) => annotations().filter((annotation) => annotation.target === block),
-    add: (block: string, body: string) => change("POST", undefined, { target: block, body }),
-    edit: (id: string, body: string) => change("PATCH", id, { body }),
-    remove: (id: string) => change("DELETE", id),
-  };
 
   // A jump to a block, from the outline or a reference, opens its section,
   // closes the others, and brings the block into view.
@@ -248,14 +219,11 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   const [agentName, setAgentName] = createSignal<string | undefined>(undefined);
   // Bringing the agent's window up in the terminal, while a Claude session
   // runs the discussion.
-  const focusAgent = () =>
-    view().branch && agent() !== "gone"
-      ? () => void fetch(`${base}/agent`, { method: "POST" }).catch(() => {})
-      : undefined;
+  const focusAgent = () => (agent() !== "gone" ? () => void fetch(`${base}/agent`, { method: "POST" }).catch(() => {}) : undefined);
 
   // The blocks the agent changed that I have not confirmed seeing, as the
   // server last told them: with the content, or after a confirmation.
-  const [marks, setMarks] = createSignal(() => view().marks ?? []);
+  const [marks, setMarks] = createSignal(() => view().marks);
   const marking = {
     // A removed block is gone from the page, so no block shows its mark.
     of: (block: string) => marks().find((mark) => mark.kind !== "removed" && mark.id === block),
@@ -274,9 +242,9 @@ function DiscussionPage(props: { base: string; live: boolean }) {
 
   // What I asked the agent about blocks, as the server last told it: with
   // the content, or after asking or dismissing.
-  const [questions, setQuestions] = createSignal(() => view().questions ?? []);
+  const [questions, setQuestions] = createSignal(() => view().questions);
   const asking = {
-    available: props.live,
+    available: true,
     of: (block: string) => questions().filter((question) => question.block === block),
     ask: async (block: string, prompt: string) => {
       const question = await readAnswer<Question>(
@@ -347,7 +315,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   // server told since; while there are any, nothing is edited.
   const [conflict, setConflict] = createSignal(() => view().conflict ?? []);
   const editing = {
-    available: props.live,
+    available: true,
     blocked: () =>
       conflict().length > 0
         ? "Merging main stopped on a conflict; resolve it in the terminal first"
@@ -379,18 +347,14 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       }),
     );
   };
-  const control = props.live
-    ? {
-        focus: (id: string) => act(id, "focus"),
-        start: (id: string) => act(id, "start"),
-        open: (id: string) => act(id, "open"),
-        blocked: () => (agent() === "busy" ? "The agent is working; start it once it is done" : undefined),
-      }
-    : undefined;
+  const control = {
+    focus: (id: string) => act(id, "focus"),
+    start: (id: string) => act(id, "start"),
+    open: (id: string) => act(id, "open"),
+    blocked: () => (agent() === "busy" ? "The agent is working; start it once it is done" : undefined),
+  };
 
-  // What changed outside while the page is open, told by the server. Once
-  // something has, the page allows nothing but reloading.
-  const [outsideChange, setOutsideChange] = createSignal<BlockingChange | undefined>(undefined);
+  // What changed outside while the page is open, told by the server.
   const [notices, setNotices] = createSignal<Notice[]>([]);
   // The state of each integration, asked once when the page opens and kept
   // current by the server's notices.
@@ -403,10 +367,9 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       .catch(() => {});
     const onChange = (event: Event) => {
       const change = JSON.parse((event as MessageEvent).data) as Change;
-      // A new version is what a hand-over asked for, so it is shown at once.
       // A change to the source is fetched and shown in place, keeping what is
       // open; the old content stays until the new one has arrived.
-      if (change.kind === "version") return refresh(view);
+      if (change.kind === "source") return refresh(view);
       if (change.kind === "agent") {
         setAgentName(change.name);
         return setAgent(change.state);
@@ -414,7 +377,6 @@ function DiscussionPage(props: { base: string; live: boolean }) {
       if (change.kind === "conflict") return setConflict(change.files);
       if (change.kind === "transcript") return setTranscript(change.replace ? change.entries : mergeTranscript(transcript(), change.entries));
       if (change.kind === "asset") return assetChanged(change.file);
-      if (isBlocking(change)) return setOutsideChange(change);
       if (change.kind === "linked") forgetPreview(change.page);
       // An integration's state belongs in its widget, not in a notice.
       if (change.kind === "integration") return setStates(new Map([...states(), [change.state.id, change.state]]));
@@ -466,11 +428,11 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   };
 
   // The tab shows the page's icon from its frontmatter, as an emoji drawn into
-  // an SVG, and its title: the task's key and title, or the source's name.
+  // an SVG, and its title: the task's key and title, or the topic's key.
   createEffect(
-    () => ({ fields: frontmatter(page()), task: task(), source: view().ref.source }),
-    ({ fields, task: header, source }) => {
-      document.title = header ? `${header.key} · ${header.title}` : source;
+    () => ({ fields: frontmatter(page()), task: task(), key: view().key }),
+    ({ fields, task: header, key }) => {
+      document.title = header ? `${header.key} · ${header.title}` : key;
       const icon = fields.icon?.trim();
       if (!icon) return;
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${icon}</text></svg>`;
@@ -511,13 +473,12 @@ function DiscussionPage(props: { base: string; live: boolean }) {
   return (
     <Errored fallback={(error) => <p class="error">{String(error())}</p>}>
       <Loading fallback={<p>Loading…</p>}>
-        <Show when={outsideChange()}>{(shown) => <ChangeNotice change={shown()} base={base} />}</Show>
         <div class="notices" onPointerOver={onPointer} onPointerLeave={() => setPointed(undefined)}>
           <ConflictBanner files={conflict()} />
           <SourceProblems problems={problems()} />
           <Notices notices={notices()} shownBeside={besidePage()} onShowAgain={showAgain} onDismiss={dismiss} />
         </div>
-        <AssetsContext value={props.live ? `${base}/assets` : undefined}>
+        <AssetsContext value={`${base}/assets`}>
         <ProblemsContext value={report}>
         <EditingContext value={editing}>
         <MarksContext value={marking}>
@@ -526,7 +487,6 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         <OpenPageContext value={(name: string) => setBeside({ page: name })}>
         <OpenBlockContext value={(id: string) => setBeside({ block: id })}>
         <OpenAssetContext value={(asset: Asset) => setBeside({ asset })}>
-        <CommentsContext value={comments}>
         <div
           class={["layout", { "with-beside": !!beside() }]}
           onPointerOver={onPointer}
@@ -552,19 +512,13 @@ function DiscussionPage(props: { base: string; live: boolean }) {
               beside={besideSection()?.id}
               onBeside={(id) => setBeside({ section: keys().get(id) ?? id })}
             />
-            <AttachmentList
-              attachments={view().attachments}
-              open={besideAttachment()?.id}
-              onOpen={(id) => setBeside({ attachment: id })}
-            />
-            <CommentList annotations={annotations()} blockText={blockText} />
           </aside>
           <div class="content">
             <Show
               when={task()}
               fallback={
                 <header class="discussion-header">
-                  {view().ref.source} · {discussionLine()}
+                  {view().key} · {discussionLine()}
                 </header>
               }
             >
@@ -592,9 +546,6 @@ function DiscussionPage(props: { base: string; live: boolean }) {
           <Show when={besideSection()}>
             {(block) => <BesideSection block={block()} onClose={() => setBeside(undefined)} />}
           </Show>
-          <Show when={besideAttachment()} keyed>
-            {(attachment) => <BesideAttachment attachment={attachment} base={base} onClose={() => setBeside(undefined)} />}
-          </Show>
           <Show when={besideAsset()} keyed>
             {(asset) => <BesideAsset asset={asset} onClose={() => setBeside(undefined)} />}
           </Show>
@@ -607,37 +558,32 @@ function DiscussionPage(props: { base: string; live: boolean }) {
         </div>
         <Dock
           panels={[
-            ...(props.live
-              ? [
-                  {
-                    id: "transcript",
-                    label: "Transcript",
-                    content: () => (
-                      <TranscriptPanel
-                        entries={transcript()}
-                        agent={agent()}
-                        forks={questions().filter((question) => question.block === undefined)}
-                        blocked={asking.blocked}
-                        forkBlocked={asking.forkBlocked}
-                        onPrompt={tellAgent}
-                        onFork={asking.askFork}
-                      />
-                    ),
-                  },
-                ]
-              : []),
-            ...((view().discussion.integrations ?? []).length > 0
+            {
+              id: "transcript",
+              label: "Transcript",
+              content: () => (
+                <TranscriptPanel
+                  entries={transcript()}
+                  agent={agent()}
+                  forks={questions().filter((question) => question.block === undefined)}
+                  blocked={asking.blocked}
+                  forkBlocked={asking.forkBlocked}
+                  onPrompt={tellAgent}
+                  onFork={asking.askFork}
+                />
+              ),
+            },
+            ...(view().integrations.length > 0
               ? [
                   {
                     id: "integrations",
-                    label: `Integrations (${(view().discussion.integrations ?? []).length})`,
-                    content: () => <IntegrationPanel integrations={view().discussion.integrations ?? []} states={states()} control={control} />,
+                    label: `Integrations (${view().integrations.length})`,
+                    content: () => <IntegrationPanel integrations={view().integrations} states={states()} control={control} />,
                   },
                 ]
               : []),
           ]}
         />
-        </CommentsContext>
         </OpenAssetContext>
         </OpenBlockContext>
         </OpenPageContext>
@@ -655,8 +601,7 @@ function DiscussionPage(props: { base: string; live: boolean }) {
 function App() {
   const match = ROUTE.exec(location.pathname);
   if (!match) return <p>Open a discussion with <code>pnpm topic open &lt;key&gt;</code>.</p>;
-  if (!match[2]) return <DiscussionPage base={`/api/topics/${match[1]}`} live />;
-  return <DiscussionPage base={`/api/discussions/${match[1]}/${match[2]}`} live={false} />;
+  return <DiscussionPage base={`/api/topics/${match[1]}`} />;
 }
 
 render(() => <App />, document.getElementById("root")!);

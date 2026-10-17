@@ -15,7 +15,7 @@ export function QuestionList(props: { questions: Question[]; blockOf: (question:
   const questions = useQuestions();
   return (
     <Show when={props.questions.length > 0}>
-      <section class="comment-list change-list question-list">
+      <section class="list-box change-list question-list">
         <h3>Questions ({props.questions.length})</h3>
         <For each={props.questions}>
           {(question) => {
@@ -25,11 +25,11 @@ export function QuestionList(props: { questions: Question[]; blockOf: (question:
               <div class="change-list-entry">
                 {/* A general question is about no block, so its entry leads nowhere. */}
                 <a
-                  class={["comment-list-entry", state() === "answered" ? "question-answered" : "question-open"]}
+                  class={["list-entry", state() === "answered" ? "question-answered" : "question-open"]}
                   href={question.block ? `#${question.block}` : undefined}
                 >
-                  <span class="comment-list-block">{isFork(question) ? `fork · ${state()}` : state()}</span>
-                  <span class="comment-list-body">{excerpt(last().prompt)}</span>
+                  <span class="list-entry-block">{isFork(question) ? `fork · ${state()}` : state()}</span>
+                  <span class="list-entry-body">{excerpt(last().prompt)}</span>
                 </a>
                 <span class={["mark-seen-wrap", "has-preview", "inline"]}>
                   <button

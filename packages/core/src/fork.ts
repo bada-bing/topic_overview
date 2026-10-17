@@ -10,7 +10,7 @@ import { execFile } from "node:child_process";
 import { open } from "node:fs/promises";
 import { promisify } from "node:util";
 
-import { StoreError } from "./store.ts";
+import { StoreError } from "./errors.ts";
 
 const run = promisify(execFile);
 

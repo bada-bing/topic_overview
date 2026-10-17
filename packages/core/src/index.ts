@@ -13,3 +13,4 @@ export * from "./sessions.ts";
 export * from "./topics.ts";
 export * from "./transcript.ts";
 export * from "./view.ts";
+export * from "./work.ts";

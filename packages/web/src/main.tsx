@@ -1,7 +1,7 @@
 import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled, refresh } from "solid-js";
 
-import type { Block, DiscussionView, Mark, SourceProblem } from "@topic-overview/core";
+import type { Block, DiscussionView, Mark, SourceProblem, Work } from "@topic-overview/core";
 import { markKey } from "@topic-overview/core/mark";
 import type { Question } from "@topic-overview/core/question";
 import { type TranscriptEntry, mergeTranscript } from "@topic-overview/core/transcript";
@@ -15,6 +15,7 @@ import { Metadata } from "./components/Metadata.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
+import { WorkLine } from "./components/Status.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { TranscriptPanel } from "./components/TranscriptPanel.tsx";
 import { headingKeys, innermost, isSection, namedPlace, outline, placeName, reveal, sectionOf, shownUnfolded, toggleFold } from "./outline.ts";
@@ -217,6 +218,9 @@ function DiscussionPage(props: { base: string }) {
   // blocks are not edited and changes not confirmed from the page.
   const [agent, setAgent] = createSignal<string>("idle");
   const [agentName, setAgentName] = createSignal<string | undefined>(undefined);
+  // The active work, as the server last told it.
+  const [work, setWork] = createSignal<Work | undefined>(undefined);
+  const workLine = () => <WorkLine work={work()} topic={view().key} />;
   // Bringing the agent's window up in the terminal, while a Claude session
   // runs the discussion.
   const focusAgent = () => (agent() !== "gone" ? () => void fetch(`${base}/agent`, { method: "POST" }).catch(() => {}) : undefined);
@@ -375,6 +379,7 @@ function DiscussionPage(props: { base: string }) {
         return setAgent(change.state);
       }
       if (change.kind === "conflict") return setConflict(change.files);
+      if (change.kind === "work") return setWork(change.work);
       if (change.kind === "transcript") return setTranscript(change.replace ? change.entries : mergeTranscript(transcript(), change.entries));
       if (change.kind === "asset") return assetChanged(change.file);
       if (change.kind === "linked") forgetPreview(change.page);
@@ -518,11 +523,13 @@ function DiscussionPage(props: { base: string }) {
               when={task()}
               fallback={
                 <header class="discussion-header">
-                  {view().key} · {discussionLine()}
+                  <span>{view().key}</span>
+                  {workLine()}
+                  <span class="task-discussion">{discussionLine()}</span>
                 </header>
               }
             >
-              {(header) => <TaskHeader task={header()} discussion={discussionLine()} onDiscussion={focusAgent()} />}
+              {(header) => <TaskHeader task={header()} discussion={discussionLine()} onDiscussion={focusAgent()} work={workLine()} />}
             </Show>
             <main>
               <Blocks blocks={leading()} />

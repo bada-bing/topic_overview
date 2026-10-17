@@ -27,6 +27,8 @@ import {
   type Topic,
   Topics,
   type TranscriptEntry,
+  type Work,
+  activeWork,
   fork,
   forkModel,
   sessionDirectory,
@@ -54,6 +56,8 @@ const HEARTBEAT = 10_000;
 const SETTLE = 300;
 const AGENT_INTERVAL = 1_000;
 const MAIN_INTERVAL = 2_000;
+// The active work moves by the minute.
+const WORK_INTERVAL = 15_000;
 
 let topics: Topics | undefined;
 // The knowledge base is read from .env when the first topic is asked for.
@@ -205,8 +209,8 @@ async function view(topic: Topic, text: string): Promise<DiscussionView> {
 
 // What an open discussion is watched for: its source changing in the
 // worktree, its state changing, such as by an answer, its agent's state and
-// what its agent says and does, read from its transcript, and what is new on
-// main. One watcher belongs
+// what its agent says and does, read from its transcript, what is new on
+// main, and the active work. One watcher belongs
 // to the discussion, not to a page: it starts with the first page open on it
 // and stops with the last, and what it finds goes to every page open on it,
 // so no page misses what another one's check found.
@@ -218,6 +222,7 @@ interface Watch {
   entries: TranscriptEntry[]; // the recent part of it, for a page that joins
   tail?: Tail;
   conflict: string;
+  work?: Work; // the active work, as last seen
   stop: () => void;
 }
 
@@ -243,6 +248,7 @@ async function subscribe(response: ServerResponse, key: string): Promise<void> {
   if (watch.agent) response.write(`event: change\ndata: ${JSON.stringify({ kind: "agent", state: watch.agent, name: watch.agentName })}\n\n`);
   if (watch.conflict) response.write(`event: change\ndata: ${JSON.stringify({ kind: "conflict", files: watch.conflict.split("\n") })}\n\n`);
   if (watch.transcript) response.write(`event: change\ndata: ${JSON.stringify({ kind: "transcript", entries: watch.entries, replace: true })}\n\n`);
+  if (watch.work) response.write(`event: change\ndata: ${JSON.stringify({ kind: "work", work: watch.work })}\n\n`);
   const heartbeat = setInterval(() => response.write("event: heartbeat\ndata: \n\n"), HEARTBEAT);
   const watched = watch;
   response.on("close", () => {
@@ -334,10 +340,20 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
       watches.delete(key);
       for (const page of watch.pages) page.end();
     });
+  // The active work, told when it changes, so the page shows what the clock
+  // runs on and for how long.
+  const askWork = async () => {
+    const work = await activeWork();
+    if (JSON.stringify(work) === JSON.stringify(watch.work)) return;
+    watch.work = work;
+    tell(watch, { kind: "work", work });
+  };
   await askAgent().catch(() => {});
+  await askWork().catch(() => {});
   check(merge)();
   const agentPoll = setInterval(check(askAgent), AGENT_INTERVAL);
   const mainPoll = setInterval(check(merge), MAIN_INTERVAL);
+  const workPoll = setInterval(check(askWork), WORK_INTERVAL);
   // The integrations are read anew on every round, so a merge request added
   // to Links, or one the agent adds, is watched from then on. Each kind is
   // asked as often as INTERVALS says, and a change of state goes to the
@@ -371,6 +387,7 @@ async function startWatch(key: string, watch: Watch): Promise<void> {
     watch.tail?.stop();
     clearInterval(agentPoll);
     clearInterval(mainPoll);
+    clearInterval(workPoll);
     clearInterval(integrationPoll);
     watcher.close();
     assetWatcher?.close();

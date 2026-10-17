@@ -1505,3 +1505,32 @@ button.task-discussion {
 .transcript-forks .question {
   margin: 6px 0;
 }
+
+/* The active work, as the tmux status bar shows it beside the task: how long
+   the open interval has run, and what it records when that is not this topic. */
+.work-line {
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.work-elapsed {
+  font-variant-numeric: tabular-nums;
+}
+
+.work-task .work-elapsed,
+.work-adhoc .work-elapsed {
+  color: var(--text);
+}
+
+.work-unlabelled .work-what {
+  color: var(--now);
+  font-weight: 600;
+}
+
+.discussion-header {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}

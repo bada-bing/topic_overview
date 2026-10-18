@@ -28,6 +28,8 @@ import { StoreError } from "./errors.ts";
 
 const run = promisify(execFile);
 const KEY = /^[A-Za-z0-9][\w.-]*$/;
+// The tmux session freestyle topics' agents run in, a window each.
+export const FREESTYLE_SESSION = "discussions";
 
 // The knowledge base: TOPIC_OVERVIEW_KB, set in .env. A leading ~ stands for
 // the home directory.
@@ -115,23 +117,59 @@ export class Topics {
   // since it is worked on once at a time. The knowledge base must be clean,
   // its journals aside, since a change not committed would silently be left
   // out of the discussion, and a page may depend on any other.
-  async open(key: string, session?: Session, tmux?: Tmux, now = new Date()): Promise<OpenTopic> {
+  //
+  // A freestyle topic has no task behind it: its page is `pages/<key>.md`,
+  // and when there is none yet it is created on the branch, titled, so a
+  // topic discarded leaves no page behind and one closed lands its page on
+  // main with the rest. Its agent runs in the `discussions` tmux session, in
+  // a window named after the key, unless told otherwise.
+  async open(key: string, session?: Session, tmux?: Tmux, now = new Date(), freestyle?: { title: string }): Promise<OpenTopic> {
     const existing = await this.read(key).catch(() => undefined);
     if (existing) return { topic: existing, opened: false };
 
     await this.refuseUncommitted();
-    const page = await this.pageOf(key);
+    const found = await this.pageOf(key).catch((failure: unknown) => {
+      if (freestyle && failure instanceof StoreError) return undefined;
+      throw failure;
+    });
     const branch = `discussion/${key}`;
     if (await this.branchExists(branch)) {
       throw new StoreError(`${branch} exists without an open discussion; close it or delete the branch first`);
     }
     await mkdir(this.root, { recursive: true });
     await git(this.kb, "worktree", "add", "--quiet", "-b", branch, this.worktree(key), "main");
+    let page = found;
+    if (!page) {
+      page = join("pages", `${key}.md`);
+      await writeFile(join(this.worktree(key), page), `- # ${freestyle!.title}\n`);
+      await git(this.worktree(key), "add", "--", page);
+      await git(this.worktree(key), "commit", "--quiet", "-m", `${key}: Open the topic`);
+    }
     const topic: Topic = { key, page, branch, opened: now.toISOString(), integrations: [] };
     if (session) topic.session = session;
     if (tmux) topic.tmux = tmux;
+    else if (freestyle) topic.tmux = { session: FREESTYLE_SESSION, window: key };
     await this.write(topic);
     return { topic, opened: true };
+  }
+
+  // Gives a freestyle topic's agent its window, `discussions:<key>`, with a
+  // Claude session started in it at the knowledge base, unless the window is
+  // there already. The session is created when it is not, as `shared` is for
+  // the processes of no project. Claude is typed into the window's shell, as
+  // into an assistant window by hand: run by a shell of its own, the pane's
+  // command reads as the wrapper, not as Claude, and the shell stays once
+  // Claude ends. Says where the agent runs.
+  async startFreestyleAgent(key: string): Promise<string> {
+    const { session, window } = (await this.read(key)).tmux ?? { session: key };
+    const target = `${session}:${window ?? "^"}`;
+    if (session !== FREESTYLE_SESSION || !window) return target;
+    const windows = await run("tmux", ["list-windows", "-t", `=${session}`, "-F", "#{window_name}"]).catch(() => ({ stdout: "" }));
+    if (windows.stdout.split("\n").includes(window)) return target;
+    if (windows.stdout === "") await run("tmux", ["new-session", "-d", "-s", session, "-n", window, "-c", this.kb]);
+    else await run("tmux", ["new-window", "-d", "-t", `=${session}:`, "-n", window, "-c", this.kb]);
+    await this.type(target, "claude");
+    return target;
   }
 
   async read(key: string): Promise<Topic> {
@@ -669,9 +707,11 @@ export class Topics {
     await writeFile(this.stateFile(topic.key), `${JSON.stringify(topic, null, 2)}\n`);
   }
 
-  // A task's page is named `<key>-<slug>.md`, and exactly one may match.
+  // A task's page is named `<key>-<slug>.md`, and exactly one may match; a
+  // freestyle topic's page is named by its key alone.
   private async pageOf(key: string): Promise<string> {
     const pages = await readdir(join(this.kb, "pages"));
+    if (pages.includes(`${key}.md`)) return join("pages", `${key}.md`);
     const matches = pages.filter((file) => file.startsWith(`${key}-`) && file.endsWith(".md"));
     if (matches.length === 0) throw new StoreError(`there is no page for ${key}`);
     if (matches.length > 1) throw new StoreError(`more than one page matches ${key}: ${matches.join(", ")}`);

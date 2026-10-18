@@ -7,8 +7,13 @@ text.
 ## A discussion
 
 A discussion works on a page of the knowledge base itself, a task's page
-`pages/<key>-<slug>.md`, on a branch of the knowledge base's repository,
-`discussion/<key>`, checked out in a worktree beside it. The knowledge base
+`pages/<key>-<slug>.md` or a freestyle topic's own page `pages/<key>.md`,
+on a branch of the knowledge base's repository, `discussion/<key>`, checked
+out in a worktree beside it. A freestyle topic has no task behind it, an
+agent's analysis for instance: `topic open <key> --freestyle [<title>]`
+creates its page on the branch when there is none, as one heading block
+with the title, so a topic discarded leaves no page and one closed lands
+its page on `main`. The knowledge base
 is `TOPIC_OVERVIEW_KB`; the worktrees are under `TOPIC_OVERVIEW_WORKTREES`,
 or a folder `worktrees` beside the knowledge base. A topic has at most one
 open discussion, so its key names everything the discussion has:
@@ -153,7 +158,7 @@ discussion.
 | Field | Holds |
 |---|---|
 | `key`, `page`, `branch`, `opened` | the topic, its source relative to the knowledge base, the branch, and when it was opened |
-| `tmux` | where the discussion's agent runs: a tmux `session`, and a `window` in it when not its first. Absent, the agent is the first window of the session named after the key. `topic agent` sets it; the agent is looked up each time, so whoever runs there now is asked |
+| `tmux` | where the discussion's agent runs: a tmux `session`, and a `window` in it when not its first. Absent, the agent is the first window of the session named after the key. A freestyle topic's agent is `discussions:<key>`, a window `topic open --freestyle` creates with a Claude session started at the knowledge base. `topic agent` sets it; the agent is looked up each time, so whoever runs there now is asked |
 | `session` | the Claude session `topic open --session` was told of, its `id` and `transcript`. Rarely set: the agent's state and transcript are read off its tmux window, which its hooks mark |
 | `integrations` | what the discussion depends on outside its source, each `id` being `<kind>:<reference>`, so one is never added twice; `label` and `detail` are what it is shown as. Merge requests are read off the page's Links and never kept here |
 | `ids` | the ids the tool gave blocks, each in a commit of its own, removed at close unless a `((reference))` anywhere in the knowledge base points at one |

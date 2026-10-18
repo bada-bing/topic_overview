@@ -83,6 +83,27 @@ test("every open discussion is listed with its agent's state", async () => {
   assert.deepEqual(await topics.agents(), [{ key: "KEY_1", state: "gone" }]);
 });
 
+test("a freestyle topic gets a page of its own on the branch, and an agent in discussions", async () => {
+  await assert.rejects(topics.open("notes"), /no page/);
+  const { topic } = await topics.open("notes", undefined, undefined, new Date(), { title: "Notes on soil" });
+  assert.equal(topic.page, join("pages", "notes.md"));
+  assert.deepEqual(topic.tmux, { session: "discussions", window: "notes" });
+  assert.equal(await readFile(join(home, "worktrees", "notes", "pages", "notes.md"), "utf8"), "- # Notes on soil\n");
+  assert.equal(git(join(home, "worktrees", "notes"), "log", "-1", "--format=%s").trim(), "notes: Open the topic");
+  assert.equal(existsSync(join(kb, "pages", "notes.md")), false);
+  // Discarded, the page was never there; closed, it lands on main.
+  await topics.discard("notes");
+  assert.equal(existsSync(join(kb, "pages", "notes.md")), false);
+  await topics.open("notes", undefined, undefined, new Date(), { title: "Notes on soil" });
+  const closed = await topics.close("notes");
+  assert.equal(closed.subject, "notes: Update");
+  assert.equal(await readFile(join(kb, "pages", "notes.md"), "utf8"), "- # Notes on soil\n");
+  // A page named by its key alone is found again, freestyle or not.
+  const again = await topics.open("notes");
+  assert.equal(again.topic.page, join("pages", "notes.md"));
+  assert.equal(again.topic.tmux, undefined);
+});
+
 test("a key with no page is refused, and nothing is created", async () => {
   await assert.rejects(topics.open("KEY_2"), StoreError);
   assert.equal(existsSync(join(home, "worktrees", "KEY_2")), false);

@@ -346,6 +346,12 @@ export class Topics {
   // nothing is confirmed, since it writes the marks.
   async clearMark(key: string, which: string): Promise<Mark[]> {
     if ((await this.agentState(key)) === "busy") throw new StoreError("the agent is working; confirm once it is done");
+    return this.dropMark(key, which);
+  }
+
+  // Takes a block's mark away without confirming anything: what the agent
+  // does when it deletes the block, whose mark makes way for the removal's.
+  async dropMark(key: string, which: string): Promise<Mark[]> {
     const topic = await this.read(key);
     topic.marks = (topic.marks ?? []).filter((known) => markKey(known) !== which);
     await this.write(topic);

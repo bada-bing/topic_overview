@@ -16,7 +16,7 @@ export async function remove([key, id]: string[], _context: Context): Promise<vo
   // no block left to mark; a mark it had goes with it.
   const removed = await topics.ownText(topic, block);
   const where = placeOfDeleted((await topics.source(topic)).text, block);
-  await topics.clearMark(topic, block);
+  await topics.dropMark(topic, block);
   const head = await topics.change(topic, `Delete ${await topics.blockName(topic, block)}`, (text) => deleteBlock(text, block), {
     text: removed,
     kind: "removed",

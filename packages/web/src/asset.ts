@@ -8,8 +8,8 @@ import type { Table } from "./table.ts";
 // links to. An asset shows as its name until it is wanted: hovering it
 // previews it, and clicking it opens it in the column beside.
 export type Asset =
-  | { kind: "image"; alt: string; src: string }
-  | { kind: "diagram"; language: string; source: string }
+  | { kind: "image"; alt: string; src: string; width?: number; height?: number }
+  | { kind: "diagram"; language: string; source: string; title?: string } // the title Mermaid's front matter gives it
   | { kind: "table"; table: Table }
   | { kind: "document"; name: string; src: string };
 
@@ -17,7 +17,7 @@ const NAME_LENGTH = 48;
 
 export function assetName(asset: Asset): string {
   if (asset.kind === "image") return asset.alt || asset.src.split("/").pop() || "image";
-  if (asset.kind === "diagram") return `${asset.language} diagram`;
+  if (asset.kind === "diagram") return asset.title ?? `${asset.language} diagram`;
   if (asset.kind === "document") return asset.name;
   const columns = asset.table.header.join(", ");
   return `table: ${columns.length > NAME_LENGTH ? `${columns.slice(0, NAME_LENGTH - 1)}…` : columns}`;
@@ -30,15 +30,28 @@ export function assetsIn(text: string): Asset[] {
   for (const part of parseText(text)) {
     if (part.kind === "table") assets.push({ kind: "table", table: part.table });
     else if (part.kind === "codeblock" && DIAGRAM_LANGUAGES.has(part.language)) {
-      assets.push({ kind: "diagram", language: part.language, source: part.code });
+      assets.push(diagramAsset(part.language, part.code));
     } else if (part.kind === "inline") {
       for (const inline of part.inlines) {
-        if (inline.kind === "image") assets.push({ kind: "image", alt: inline.alt, src: inline.src });
+        if (inline.kind === "image") assets.push(imageAsset(inline));
         else if (inline.kind === "link" && isDocument(inline.href)) assets.push(documentAsset(inline.text, inline.href));
       }
     }
   }
   return assets;
+}
+
+export function imageAsset(image: { alt: string; src: string; width?: number; height?: number }): Asset {
+  const { alt, src, width, height } = image;
+  return { kind: "image", alt, src, ...(width ? { width } : {}), ...(height ? { height } : {}) };
+}
+
+// A diagram, named by the title its front matter gives it, which Mermaid
+// writes as `---\ntitle: …\n---` ahead of the diagram.
+export function diagramAsset(language: string, source: string): Asset {
+  const front = /^\s*---\n([\s\S]*?)\n---/.exec(source);
+  const title = front && /^title:\s*(.+?)\s*$/m.exec(front[1]);
+  return { kind: "diagram", language, source, ...(title ? { title: title[1] } : {}) };
 }
 
 // A link to a markdown file of the knowledge base's assets/, written relative

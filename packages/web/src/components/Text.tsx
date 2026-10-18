@@ -5,7 +5,7 @@ import { MENTION } from "@topic-overview/core/page";
 
 import { OpenBlockContext, OpenPageContext } from "../column.ts";
 import { MERGE_REQUEST, MergeRequestLink } from "./MergeRequestLink.tsx";
-import { DIAGRAM_LANGUAGES, assetsIn, documentAsset, isDocument } from "../asset.ts";
+import { DIAGRAM_LANGUAGES, assetsIn, diagramAsset, documentAsset, imageAsset, isDocument } from "../asset.ts";
 import { AssetChip } from "./AssetChip.tsx";
 import { AssetView } from "./AssetView.tsx";
 import { type Inline, parseText } from "../inline.ts";
@@ -21,7 +21,7 @@ export function Text(props: { text: string }) {
           <AssetChip asset={{ kind: "table", table: part.table }} />
         ) : part.kind === "codeblock" ? (
           DIAGRAM_LANGUAGES.has(part.language) ? (
-            <AssetChip asset={{ kind: "diagram", language: part.language, source: part.code }} />
+            <AssetChip asset={diagramAsset(part.language, part.code)} />
           ) : (
             <pre class="codeblock">
               <code>{part.code}</code>
@@ -55,7 +55,7 @@ function InlinePiece(props: { inline: Inline }) {
         </a>
       );
     case "image":
-      return <AssetChip asset={{ kind: "image", alt: inline.alt, src: inline.src }} />;
+      return <AssetChip asset={imageAsset(inline)} />;
     case "page":
       return <PageLink name={inline.name} />;
     case "reference":

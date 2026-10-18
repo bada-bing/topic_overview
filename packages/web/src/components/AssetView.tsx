@@ -10,19 +10,29 @@ import { Text } from "./Text.tsx";
 export function AssetView(props: { asset: Asset }) {
   const asset = props.asset;
   if (asset.kind === "table") return <TableView table={asset.table} />;
-  if (asset.kind === "diagram") return <Diagram language={asset.language} source={asset.source} />;
+  if (asset.kind === "diagram") return <Diagram language={asset.language} source={asset.source} title={asset.title} />;
   if (asset.kind === "document") return <Document name={asset.name} src={asset.src} />;
-  return <Image alt={asset.alt} src={asset.src} />;
+  return <Image alt={asset.alt} src={asset.src} width={asset.width} height={asset.height} />;
 }
 
-// An image the source links to. One the page cannot fetch stays the markdown
-// it is written as, so nothing is lost.
-function Image(props: { alt: string; src: string }) {
+// An image the source links to, at the size the source gives it, as Logseq
+// shows it, and no wider than its column. Its alt text is its caption, and
+// the tooltip says the size. One the page cannot fetch stays the markdown it
+// is written as, so nothing is lost.
+function Image(props: { alt: string; src: string; width?: number; height?: number }) {
   const base = useAssets();
   const source = () => assetSource(props.src, base);
+  const size = () => (props.width && props.height ? `${props.width} × ${props.height}` : props.width ? `${props.width} wide` : props.height ? `${props.height} high` : undefined);
   return (
     <Show when={source()} fallback={<span class="image-missing">{`![${props.alt}](${props.src})`}</span>}>
-      {(shown) => <img class="block-image" src={shown()} alt={props.alt} />}
+      {(shown) => (
+        <figure class="image-figure" title={size()}>
+          <img class="block-image" src={shown()} alt={props.alt} width={props.width} height={props.height} />
+          <Show when={props.alt}>
+            <figcaption class="image-caption">{props.alt}</figcaption>
+          </Show>
+        </figure>
+      )}
     </Show>
   );
 }

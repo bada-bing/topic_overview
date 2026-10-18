@@ -43,8 +43,10 @@ function summary(message: string): string {
 }
 
 // A diagram kept as its source and rendered on the page. When it cannot be
-// rendered, the page shows the error and the source instead.
-export function Diagram(props: { language: string; source: string }) {
+// rendered, the page shows the error and the source instead. Mermaid draws
+// the title its front matter gives it into the diagram, so the title is the
+// tooltip rather than a caption under it.
+export function Diagram(props: { language: string; source: string; title?: string }) {
   const [error, setError] = createSignal<string | undefined>(undefined);
   const report = useProblems();
   let container: HTMLDivElement | undefined;
@@ -78,7 +80,7 @@ export function Diagram(props: { language: string; source: string }) {
         </div>
       }
     >
-      <div class={["diagram", `diagram-${props.language}`]} ref={(element) => (container = element)} />
+      <div class={["diagram", `diagram-${props.language}`]} title={props.title ?? `${props.language} diagram`} ref={(element) => (container = element)} />
     </Show>
   );
 }

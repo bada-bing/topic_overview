@@ -87,7 +87,7 @@ it is listed in the outline with the headings inside it.
 | Bold, italic, code | `**bold**`, `*italic*`, `` `code` `` | as written |
 | Link | `[text](url)`, or a bare `https://…` | a link that opens in a new tab |
 | Link to a GitLab merge request | a link ending in `/-/merge_requests/<number>`, on a host `TOPIC_OVERVIEW_GITLAB_HOSTS` lists | the link with the request's state: open, draft, merged or closed |
-| Image | `![alt](../assets/picture.png)`: a file in the knowledge base's `assets/` | its name; hovering previews it, and clicking opens it beside |
+| Image | `![alt](../assets/picture.png)`: a file in the knowledge base's `assets/`, with the size Logseq writes after one it resized, `{:height 300, :width 400}`, kept | its name; hovering previews it, and clicking opens it beside, at the size given and no wider than the column, the alt text under it as a caption and the size in the tooltip |
 | Link to a document | `[name](../assets/plan.md)`: a markdown file in the knowledge base's `assets/` | its name; hovering previews it, and clicking opens it beside, with its tables and diagrams drawn |
 | Reference to a block | `((7f1c…))` | a link to the block; hovering shows its text. A block on another page of the knowledge base is shown by its first line, linking to its page; hovering shows the lines under it |
 | Link to another page | `[[page name]]` | hovering previews the page; clicking opens it beside |
@@ -108,7 +108,7 @@ would leave one.
 
 | Notation | Marked | Rendered by |
 |---|---|---|
-| Mermaid: flowcharts, sequence, class and state diagrams, and the rest of what Mermaid draws | `mermaid` | Mermaid |
+| Mermaid: flowcharts, sequence, class and state diagrams, and the rest of what Mermaid draws; a `title:` in its front matter, `---\ntitle: …\n---`, names the diagram | `mermaid` | Mermaid |
 | BPMN 2.0, as XML with its layout | `bpmn` | bpmn-js |
 
 A diagram that cannot be rendered shows the error and its source instead.

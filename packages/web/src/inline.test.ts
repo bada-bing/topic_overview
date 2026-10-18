@@ -17,6 +17,16 @@ test("inline markdown is split into its pieces", () => {
   ]);
 });
 
+test("an image carries the size Logseq wrote after it", () => {
+  assert.deepEqual(parseInline("see ![the plan](../assets/plan.png){:height 300, :width 400} here"), [
+    { kind: "text", text: "see " },
+    { kind: "image", alt: "the plan", src: "../assets/plan.png", width: 400, height: 300 },
+    { kind: "text", text: " here" },
+  ]);
+  assert.deepEqual(parseInline("![](../assets/plan.png){:width 200}"), [{ kind: "image", alt: "", src: "../assets/plan.png", width: 200 }]);
+  assert.deepEqual(parseInline("![](../assets/plan.png)"), [{ kind: "image", alt: "", src: "../assets/plan.png" }]);
+});
+
 test("a reference inside code stays code", () => {
   assert.deepEqual(parseInline("write `((b7))`"), [
     { kind: "text", text: "write " },

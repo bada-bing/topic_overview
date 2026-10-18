@@ -9,7 +9,7 @@ export type Inline =
   | { kind: "italic"; text: string }
   | { kind: "code"; text: string }
   | { kind: "link"; text: string; href: string }
-  | { kind: "image"; alt: string; src: string }
+  | { kind: "image"; alt: string; src: string; width?: number; height?: number } // the size, when Logseq wrote one after the image
   | { kind: "page"; name: string }
   | { kind: "reference"; id: string };
 
@@ -22,7 +22,7 @@ export type Marker = "DONE" | "NOW" | "LATER";
 
 const FENCE = /```([^\n`]*)\n([\s\S]*?)```/g;
 const INLINE =
-  /!\[([^\]\n]*)\]\(([^)\s]+)\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[\[([^\]\n]+)\]\]|\(\(([^()\s]+)\)\)|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)|(?<![*\w])\*([^*\n]+)\*(?![*\w])/g;
+  /!\[([^\]\n]*)\]\(([^)\s]+)\)(\{:[^}\n]*\})?|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[\[([^\]\n]+)\]\]|\(\(([^()\s]+)\)\)|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)|(?<![*\w])\*([^*\n]+)\*(?![*\w])/g;
 const MARKER = /^(DONE|NOW|LATER) /;
 
 // A block's text in order: runs of inline text, fenced code blocks, and
@@ -50,8 +50,8 @@ export function parseInline(text: string): Inline[] {
   let last = 0;
   for (const match of text.matchAll(INLINE)) {
     if (match.index > last) inlines.push({ kind: "text", text: text.slice(last, match.index) });
-    const [, alt, src, code, bold, page, reference, linkText, linkHref, url, italic] = match;
-    if (src !== undefined) inlines.push({ kind: "image", alt, src });
+    const [, alt, src, size, code, bold, page, reference, linkText, linkHref, url, italic] = match;
+    if (src !== undefined) inlines.push({ kind: "image", alt, src, ...imageSize(size) });
     else if (code !== undefined) inlines.push({ kind: "code", text: code });
     else if (bold !== undefined) inlines.push({ kind: "bold", text: bold });
     else if (page !== undefined) inlines.push({ kind: "page", name: page });
@@ -63,6 +63,15 @@ export function parseInline(text: string): Inline[] {
   }
   if (last < text.length) inlines.push({ kind: "text", text: text.slice(last) });
   return inlines;
+}
+
+// The size Logseq writes after an image it resized, `{:height 300, :width
+// 300}`, either number alone and in any order.
+function imageSize(size: string | undefined): { width?: number; height?: number } {
+  if (!size) return {};
+  const width = /:width\s+(\d+)/.exec(size);
+  const height = /:height\s+(\d+)/.exec(size);
+  return { ...(width ? { width: Number(width[1]) } : {}), ...(height ? { height: Number(height[1]) } : {}) };
 }
 
 // A Logseq task marker at the start of a block, and the text after it.

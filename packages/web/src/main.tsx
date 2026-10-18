@@ -1,7 +1,7 @@
 import { render } from "@solidjs/web";
 import { Errored, For, Loading, Show, createEffect, createMemo, createSignal, flush, onSettled, refresh } from "solid-js";
 
-import type { Block, DiscussionView, Mark, SourceProblem, Work } from "@topic-overview/core";
+import type { Block, DiscussionAgent, DiscussionView, Mark, SourceProblem, Work } from "@topic-overview/core";
 import { markKey } from "@topic-overview/core/mark";
 import type { Question } from "@topic-overview/core/question";
 import { type TranscriptEntry, mergeTranscript } from "@topic-overview/core/transcript";
@@ -15,7 +15,7 @@ import { Metadata } from "./components/Metadata.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
-import { WorkLine } from "./components/Status.tsx";
+import { AGENT_STATES, WorkLine } from "./components/Status.tsx";
 import { TimeBox } from "./components/TimeBox.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { TranscriptPanel } from "./components/TranscriptPanel.tsx";
@@ -27,6 +27,7 @@ import { MarksContext } from "./marks.ts";
 import { QuestionsContext } from "./questions.ts";
 import { ProblemsContext } from "./problems.ts";
 import { ChangeList } from "./components/ChangeList.tsx";
+import { DiscussionList } from "./components/DiscussionList.tsx";
 import { QuestionList } from "./components/QuestionList.tsx";
 import { ConflictBanner } from "./components/ConflictBanner.tsx";
 import { type Change, type Notice, Notices } from "./components/Notices.tsx";
@@ -47,14 +48,6 @@ const RECONNECT = 2_000;
 // How long a stream may stay silent, heartbeats included, before the page
 // takes it for dead.
 const SILENCE = 25_000;
-// What the discussion's agent is doing, in words.
-const AGENT_STATES: Record<string, string> = {
-  busy: "working",
-  waiting: "waiting for you",
-  idle: "idle",
-  gone: "no Claude session",
-};
-
 async function fetchDiscussion(base: string): Promise<DiscussionView> {
   return readAnswer<DiscussionView>(await fetch(base));
 }
@@ -219,6 +212,12 @@ function DiscussionPage(props: { base: string }) {
   // blocks are not edited and changes not confirmed from the page.
   const [agent, setAgent] = createSignal<string>("idle");
   const [agentName, setAgentName] = createSignal<string | undefined>(undefined);
+  // The other open discussions, each with its agent's state, as the server
+  // last told them, so the page shows when one of them wants me while I wait
+  // on this one.
+  const [discussions, setDiscussions] = createSignal<DiscussionAgent[]>([]);
+  const others = () => discussions().filter((discussion) => discussion.key !== view().key);
+  const focusOther = (key: string) => void fetch(`/api/topics/${encodeURIComponent(key)}/agent`, { method: "POST" }).catch(() => {});
   // The active work, as the server last told it. The task's recorded time
   // is read again only when the clock concerns this topic: it runs on it, or
   // it did until now. On a topic the clock does not touch, the box stays as
@@ -228,6 +227,7 @@ function DiscussionPage(props: { base: string }) {
   const concernsThis = (before: Work | undefined, now: Work | undefined) =>
     [before, now].some((state) => state?.kind === "task" && state.identity === view().key);
   const workLine = () => <WorkLine work={work()} topic={view().key} />;
+  const otherLines = () => <DiscussionList discussions={others()} onFocus={focusOther} />;
   // Bringing the agent's window up in the terminal, while a Claude session
   // runs the discussion.
   const focusAgent = () => (agent() !== "gone" ? () => void fetch(`${base}/agent`, { method: "POST" }).catch(() => {}) : undefined);
@@ -386,6 +386,7 @@ function DiscussionPage(props: { base: string }) {
         return setAgent(change.state);
       }
       if (change.kind === "conflict") return setConflict(change.files);
+      if (change.kind === "discussions") return setDiscussions(change.discussions);
       if (change.kind === "work") {
         if (concernsThis(work(), change.work)) setTimeVersion(timeVersion() + 1);
         return setWork(change.work);
@@ -538,11 +539,14 @@ function DiscussionPage(props: { base: string }) {
                 <header class="discussion-header">
                   <span>{view().key}</span>
                   {workLine()}
-                  <span class="task-discussion">{discussionLine()}</span>
+                  <div class="task-agents">
+                    <span class="task-discussion">{discussionLine()}</span>
+                    {otherLines()}
+                  </div>
                 </header>
               }
             >
-              {(header) => <TaskHeader task={header()} discussion={discussionLine()} onDiscussion={focusAgent()} work={workLine()} />}
+              {(header) => <TaskHeader task={header()} discussion={discussionLine()} onDiscussion={focusAgent()} work={workLine()} others={otherLines()} />}
             </Show>
             <main>
               <Blocks blocks={leading()} />

@@ -76,6 +76,13 @@ test("a topic already open is returned as it is", async () => {
   assert.deepEqual((await topics.list()).map((topic) => topic.key), ["KEY_1"]);
 });
 
+test("every open discussion is listed with its agent's state", async () => {
+  assert.deepEqual(await topics.agents(), []);
+  await topics.open("KEY_1", SESSION, TMUX);
+  // No tmux session is named after the key here, so there is no agent.
+  assert.deepEqual(await topics.agents(), [{ key: "KEY_1", state: "gone" }]);
+});
+
 test("a key with no page is refused, and nothing is created", async () => {
   await assert.rejects(topics.open("KEY_2"), StoreError);
   assert.equal(existsSync(join(home, "worktrees", "KEY_2")), false);

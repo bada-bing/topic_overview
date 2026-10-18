@@ -197,8 +197,18 @@ body {
 .task-phase.status-done { color: var(--done); }
 .task-phase.status-closed { color: var(--muted); }
 
-.task-discussion {
+/* The agents, at the right: the discussion's own line, and under it the
+   other open discussions, each with its agent's state. */
+.task-agents {
   margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.task-discussion {
   color: var(--muted);
 }
 
@@ -1584,4 +1594,40 @@ button.task-discussion {
 
 .time-span.open .time-span-minutes {
   color: var(--now);
+}
+
+
+/* The other open discussions, under the discussion's line: the key leads
+   to its page and its agent's state brings its window up. */
+.discussion-entry {
+  color: var(--muted);
+}
+
+.discussion-key {
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.discussion-key:hover {
+  text-decoration: underline;
+}
+
+.discussion-state {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+.discussion-state:disabled {
+  cursor: default;
+  text-decoration: none;
+}
+
+.agent-waiting .discussion-state {
+  color: var(--now);
+  font-weight: 600;
 }

@@ -234,6 +234,27 @@ interface Watch {
 
 const watches = new Map<string, Watch>();
 
+// The open discussions and their agents, asked once for all the watches and
+// told to every page when they change, so a page shows which other
+// discussion waits for me. The poll runs while any page is open, and ends
+// with the last watch.
+let discussions = "";
+let discussionsPoll: ReturnType<typeof setInterval> | undefined;
+
+async function askDiscussions(): Promise<void> {
+  if (watches.size === 0) {
+    clearInterval(discussionsPoll);
+    discussionsPoll = undefined;
+    discussions = "";
+    return;
+  }
+  const all = await store().agents();
+  const now = JSON.stringify(all);
+  if (now === discussions) return;
+  discussions = now;
+  for (const watch of watches.values()) tell(watch, { kind: "discussions", discussions: all });
+}
+
 function tell(watch: Watch, change: unknown): void {
   for (const page of watch.pages) page.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
 }
@@ -255,6 +276,9 @@ async function subscribe(response: ServerResponse, key: string): Promise<void> {
   if (watch.conflict) response.write(`event: change\ndata: ${JSON.stringify({ kind: "conflict", files: watch.conflict.split("\n") })}\n\n`);
   if (watch.transcript) response.write(`event: change\ndata: ${JSON.stringify({ kind: "transcript", entries: watch.entries, replace: true })}\n\n`);
   if (watch.work) response.write(`event: change\ndata: ${JSON.stringify({ kind: "work", work: watch.work })}\n\n`);
+  if (discussions) response.write(`event: change\ndata: ${JSON.stringify({ kind: "discussions", discussions: JSON.parse(discussions) })}\n\n`);
+  else await askDiscussions().catch(() => {});
+  discussionsPoll ??= setInterval(() => void askDiscussions().catch(() => {}), AGENT_INTERVAL);
   const heartbeat = setInterval(() => response.write("event: heartbeat\ndata: \n\n"), HEARTBEAT);
   const watched = watch;
   response.on("close", () => {

@@ -1,6 +1,6 @@
 import { For } from "solid-js";
 
-import type { Work } from "@topic-overview/core";
+import type { DiscussionAgent, Work } from "@topic-overview/core";
 import type { TranscriptEntry } from "@topic-overview/core/transcript";
 
 import { Banner } from "./Banner.tsx";
@@ -15,7 +15,8 @@ export type Change =
   | { kind: "agent"; state: "busy" | "waiting" | "idle" | "gone"; name?: string } // what the discussion's agent is doing, and where
   | { kind: "conflict"; files: string[] } // the files a merge from main stopped on; none once resolved
   | { kind: "transcript"; entries: TranscriptEntry[]; replace: boolean } // what the agent's transcript holds: all of it anew, or what a write added
-  | { kind: "work"; work: Work | undefined }; // the active work: what is being recorded, and for how long
+  | { kind: "work"; work: Work | undefined } // the active work: what is being recorded, and for how long
+  | { kind: "discussions"; discussions: DiscussionAgent[] }; // every open discussion with its agent's state, this one included
 
 export interface Notice {
   id: number;

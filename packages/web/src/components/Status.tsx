@@ -2,6 +2,14 @@ import { Show } from "solid-js";
 
 import type { Work } from "@topic-overview/core";
 
+// What a discussion's agent is doing, in words.
+export const AGENT_STATES: Record<string, string> = {
+  busy: "working",
+  waiting: "waiting for you",
+  idle: "idle",
+  gone: "no Claude session",
+};
+
 // The active work, as the tmux status bar shows it: what is being recorded
 // and for how long. What is recorded is named only when it is not this
 // topic, since the header names the topic already. Nothing is known of the

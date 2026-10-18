@@ -79,6 +79,14 @@ export interface Closed {
 
 export type AgentState = "busy" | "waiting" | "idle" | "gone";
 
+// An open discussion with its agent: the state of the agent's window, and
+// where it runs, named as tmux names it, when the window is there.
+export interface DiscussionAgent {
+  key: string;
+  state: AgentState;
+  name?: string;
+}
+
 export interface OpenTopic {
   topic: Topic;
   opened: boolean; // false when the topic was already open, and is returned as it is
@@ -240,6 +248,19 @@ export class Topics {
     } catch {
       return { state: "gone" };
     }
+  }
+
+  // Every open discussion with its agent's state, by key, so a view can show
+  // the others and which of them waits for me.
+  async agents(): Promise<DiscussionAgent[]> {
+    const open = await this.list();
+    const agents = await Promise.all(
+      open.map(async ({ key }) => {
+        const { state, name } = await this.agent(key);
+        return { key, state, ...(name ? { name } : {}) };
+      }),
+    );
+    return agents.sort((a, b) => a.key.localeCompare(b.key));
   }
 
   // Tells the discussion's agent something general, about the topic rather

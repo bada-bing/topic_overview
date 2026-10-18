@@ -8,22 +8,26 @@ import { Text } from "./Text.tsx";
 // key and the phase, coloured by the status, the title, and below it the
 // active step and the NOW items of the Action Plan, each a link to its block.
 // The active work follows the phase, as the status bar shows it beside the
-// task. The discussion's line, when a Claude session runs it, brings that
-// session's window up in the terminal.
-export function TaskHeader(props: { task: Header; discussion: string; onDiscussion?: () => void; work?: JSX.Element }) {
+// task. The agents sit at the right, apart from the work: the discussion's
+// line, which brings its session's window up in the terminal when a Claude
+// session runs it, and under it the other open discussions.
+export function TaskHeader(props: { task: Header; discussion: string; onDiscussion?: () => void; work?: JSX.Element; others?: JSX.Element }) {
   return (
     <header class="task-header">
       <div class="task-meta">
         <span class="task-key">{props.task.key}</span>
         <span class={["task-phase", `status-${props.task.status.toLowerCase()}`]}>{props.task.phase}</span>
         {props.work}
-        <Show when={props.onDiscussion} fallback={<span class="task-discussion">{props.discussion}</span>}>
-          {(open) => (
-            <button type="button" class="task-discussion" title="Open the agent's window in the terminal" onClick={() => open()()}>
-              {props.discussion}
-            </button>
-          )}
-        </Show>
+        <div class="task-agents">
+          <Show when={props.onDiscussion} fallback={<span class="task-discussion">{props.discussion}</span>}>
+            {(open) => (
+              <button type="button" class="task-discussion" title="Open the agent's window in the terminal" onClick={() => open()()}>
+                {props.discussion}
+              </button>
+            )}
+          </Show>
+          {props.others}
+        </div>
       </div>
       <div class="task-title">{props.task.title}</div>
       <Show when={props.task.steps.length + props.task.actions.length > 0}>

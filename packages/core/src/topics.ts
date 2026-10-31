@@ -22,7 +22,7 @@ import { type Mark, markKey } from "./mark.ts";
 import { deploymentReference } from "./cluster.ts";
 import { sessionDirectory } from "./fork.ts";
 import { processAddress, processWindow, startProcess } from "./process.ts";
-import { type Question, isFork } from "./question.ts";
+import { type Question, SUGGESTIONS, type Suggestion, isFork } from "./question.ts";
 import { type Session, claudeSession } from "./sessions.ts";
 import { StoreError } from "./errors.ts";
 
@@ -382,6 +382,36 @@ export class Topics {
     return question;
   }
 
+  // Asks the discussion's agent to do the item a block names, such as the
+  // NOW item of the Action Plan, with a note of mine when I leave one. It is
+  // a question of the kind `do`, kept and answered as any other, and the
+  // prompt says what the answer has to say: what was done, what is open, and
+  // whether we wait on somebody, with the marker it suggests. The agent
+  // changes no marker.
+  async doItem(key: string, view: string, note: string, now = new Date()): Promise<Question> {
+    const state = await this.agentState(key);
+    if (state === "busy") throw new StoreError("the agent is working; do it once it is done");
+    if (state === "gone") throw new StoreError("no Claude session runs in the discussion's window, so there is nobody to do it");
+    const found = locate(await readFile(await this.sourcePath(key), "utf8"), view);
+    const block = found.id ?? (await this.setId(key, found.line, found.first)).id;
+    const question: Question = {
+      id: randomUUID().slice(0, 8),
+      kind: "do",
+      block,
+      text: ownText(await readFile(await this.sourcePath(key), "utf8"), block),
+      commit: await this.head(key),
+      exchanges: [{ prompt: note.trim(), asked: now.toISOString() }],
+    };
+    await this.keep(key, question);
+    await this.tellAgent(key, question, [
+      `Do ${question.id} in the discussion of ${key}: carry out the item with id ${block}`,
+      `of ${await this.sourcePath(key)}, which reads "${clip(question.text ?? "")}"${note.trim() ? `, with this note: ${oneLine(note.trim())}` : ""}.`,
+      `Report what was done, the questions open for me, and whom we wait on, if anybody;`,
+      `suggest DONE or WAITING with --suggest, and change no marker yourself.`,
+    ]);
+    return question;
+  }
+
   // Asks further in a question's exchange, once its last answer has come.
   async followUp(key: string, id: string, prompt: string, now = new Date()): Promise<Question> {
     const question = (await this.read(key)).questions?.find((known) => known.id === id);
@@ -396,7 +426,7 @@ export class Topics {
     await this.keep(key, asked);
     if (isFork(question)) return asked;
     await this.tellAgent(key, asked, [
-      `Follow-up to question ${id} in the discussion of ${key}, about the block with id ${question.block}:`,
+      `Follow-up to ${question.kind === "do" ? "do" : "question"} ${id} in the discussion of ${key}, about the block with id ${question.block}:`,
       oneLine(prompt.trim()),
     ]);
     return asked;
@@ -404,15 +434,19 @@ export class Topics {
 
   // The agent's answer to the last thing asked in a question, shown beside
   // its block.
-  async answer(key: string, id: string, answer: string, now = new Date()): Promise<Question> {
+  // A do's answer may suggest the marker its item should carry now.
+  async answer(key: string, id: string, answer: string, now = new Date(), suggests?: Suggestion): Promise<Question> {
     if (answer.trim() === "") throw new StoreError("an answer needs text");
+    if (suggests !== undefined && !SUGGESTIONS.includes(suggests)) throw new StoreError(`a suggestion is ${SUGGESTIONS.join(" or ")}`);
     const topic = await this.read(key);
     const question = (topic.questions ?? []).find((known) => known.id === id);
     if (!question) throw new StoreError(`there is no question ${id} in the discussion of ${key}`);
     const last = question.exchanges.at(-1)!;
     if (last.answer !== undefined) throw new StoreError(`question ${id} is answered already; nothing new was asked`);
+    if (suggests !== undefined && question.kind !== "do") throw new StoreError(`question ${id} is not a do; only a do suggests a marker`);
     last.answer = answer.trim();
     last.answered = now.toISOString();
+    if (suggests !== undefined) last.suggests = suggests;
     await this.write(topic);
     return question;
   }

@@ -51,6 +51,7 @@ function readArgs() {
         nil: { type: "boolean" },
         discard: { type: "boolean" },
         freestyle: { type: "boolean" },
+        suggest: { type: "string" },
       },
     });
   } catch (error) {
@@ -70,7 +71,7 @@ if (!command) {
 }
 
 Promise.resolve()
-  .then(() => command(args, context(values.session, values.label, { after: values.after, before: values.before, into: values.into }, { line: values.line, text: values.text, nil: values.nil, discard: values.discard, freestyle: values.freestyle })))
+  .then(() => command(args, context(values.session, values.label, { after: values.after, before: values.before, into: values.into }, { line: values.line, text: values.text, nil: values.nil, discard: values.discard, freestyle: values.freestyle, suggest: values.suggest })))
   .catch((error: unknown) => {
     console.error(error instanceof StoreError ? error.message : error);
     process.exit(1);

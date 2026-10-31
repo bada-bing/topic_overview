@@ -30,6 +30,8 @@ task_title: Plan the Garden
 		  id:: b9
 			- NOW a sub-item is not a top-level item
 			  id:: b10
+		- WAITING Hear back about the seeds
+		  id:: b11
 `);
 
 test("a task page's header says where the task stands", () => {
@@ -38,8 +40,11 @@ test("a task page's header says where the task stands", () => {
     title: "Plan the Garden",
     status: "PENDING",
     phase: "Implement the Solution",
-    steps: [{ id: "b5", text: "Implement Initial Solution" }],
-    actions: [{ id: "b9", text: "Add the column beside" }],
+    steps: [{ id: "b5", text: "Implement Initial Solution", marker: "NOW" }],
+    actions: [
+      { id: "b9", text: "Add the column beside", marker: "NOW" },
+      { id: "b11", text: "Hear back about the seeds", marker: "WAITING" },
+    ],
   });
 });
 

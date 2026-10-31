@@ -2,8 +2,8 @@ import { createContext, useContext } from "solid-js";
 
 import { type Question, isFork } from "@topic-overview/core/question";
 
-// Asking the discussion's agent about a block, and the questions kept
-// beside their blocks until I dismiss them. While the agent works, nothing is
+// Asking the discussion's agent about a block, or to do the item it names,
+// and the questions kept beside their blocks until I dismiss them. While the agent works, nothing is
 // asked or dismissed, so one writer works at a time.
 export interface Questions {
   available: boolean; // only in a discussion on the source itself
@@ -15,6 +15,11 @@ export interface Questions {
   blocked: () => string | undefined; // why nothing can be asked now: the agent works, or is gone
   forkBlocked: () => string | undefined; // why no fork can be asked now: there is no session to fork
   working: () => boolean; // the agent works, so what is not answered yet is being answered
+  doItem: (block: string, note: string) => Promise<void>; // the agent asked to do the item a block names, with my note, which may be empty
+  doing: () => string | undefined; // the block whose Do field is open, from the header's ▶
+  startDo: (block: string) => void; // opens the Do field under the block and brings it into view
+  stopDo: () => void;
+  applies: (block: string) => boolean; // a suggested marker can be applied here: an item of the Action Plan
 }
 
 // Where a question stands, in words: its last answer has come, the agent is
@@ -42,6 +47,11 @@ export const QuestionsContext = createContext<Questions>({
   blocked: () => undefined,
   forkBlocked: () => undefined,
   working: () => false,
+  doItem: async () => {},
+  doing: () => undefined,
+  startDo: () => {},
+  stopDo: () => {},
+  applies: () => false,
 });
 
 export function useQuestions(): Questions {

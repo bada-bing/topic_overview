@@ -18,12 +18,12 @@ export type Part =
   | { kind: "codeblock"; language: string; code: string }
   | { kind: "table"; table: Table };
 
-export type Marker = "DONE" | "NOW" | "LATER";
+export type Marker = "DONE" | "NOW" | "WAITING" | "LATER";
 
 const FENCE = /```([^\n`]*)\n([\s\S]*?)```/g;
 const INLINE =
   /!\[([^\]\n]*)\]\(([^)\s]+)\)(\{:[^}\n]*\})?|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[\[([^\]\n]+)\]\]|\(\(([^()\s]+)\)\)|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)|(?<![*\w])\*([^*\n]+)\*(?![*\w])/g;
-const MARKER = /^(DONE|NOW|LATER) /;
+const MARKER = /^(DONE|NOW|WAITING|LATER) /;
 
 // A block's text in order: runs of inline text, fenced code blocks, and
 // tables.

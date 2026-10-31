@@ -315,3 +315,26 @@ test("closing a discussion closes the tabs the view opened for it", async () => 
     browser.close();
   }
 });
+
+test("doing an item without a Claude session to do it is refused, and nothing is kept", async () => {
+  await topics.open("KEY_1");
+  await assert.rejects(topics.doItem("KEY_1", "b2.1", ""), /nobody to do it/);
+  assert.equal((await topics.read("KEY_1")).questions, undefined);
+});
+
+test("a do's answer may suggest the item's marker, and nothing else may", async () => {
+  await topics.open("KEY_1");
+  const state = join(home, "worktrees", "KEY_1.json");
+  const topic = JSON.parse(await readFile(state, "utf8"));
+  const asked = { prompt: "", asked: "2026-10-28T08:00:00.000Z" };
+  topic.questions = [
+    { id: "do1", kind: "do", block: "b", text: "NOW Water the beds", commit: "c", exchanges: [{ ...asked }] },
+    { id: "ask1", block: "b", text: "NOW Water the beds", commit: "c", exchanges: [{ ...asked, prompt: "Why?" }] },
+  ];
+  await writeFile(state, JSON.stringify(topic));
+  await assert.rejects(topics.answer("KEY_1", "ask1", "Because.", new Date(), "DONE"), /not a do/);
+  await assert.rejects(topics.answer("KEY_1", "do1", "Asked the neighbour.", new Date(), "LATER" as never), /DONE or WAITING/);
+  const answered = await topics.answer("KEY_1", "do1", "Asked the neighbour.", new Date(), "WAITING");
+  assert.equal(answered.exchanges[0].suggests, "WAITING");
+  assert.equal((await topics.answer("KEY_1", "ask1", "Because.")).exchanges[0].suggests, undefined);
+});

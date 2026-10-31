@@ -19,7 +19,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // its content.
 // A block the agent changed is marked, with a tint and a border, until I
 // confirm I saw it with the check in its gutter, or open it to edit. The
-// questions I asked about the block are under it until I dismiss them.
+// questions I asked about the block are under it until I dismiss them, and
+// so is the field for a note when the header's ▶ asks to do its item.
 // A block is named by its label, such as R2, when it has one, and by its id
 // otherwise.
 export function BlockFrame(props: { id: string; text: string; children: JSX.Element }) {
@@ -111,6 +112,19 @@ export function BlockFrame(props: { id: string; text: string; children: JSX.Elem
         )}
       </Show>
       <For each={asked()} keyed={(question) => question.id}>{(question) => <QuestionItem question={question()} text={props.text} />}</For>
+      <Show when={!linkedPage && questions.doing() === props.id}>
+        <TextField
+          action="Do"
+          optional
+          placeholder="A note for the agent, if any. ⌘⏎ starts it."
+          blocked={questions.blocked()}
+          onSave={async (note) => {
+            await questions.doItem(props.id, note);
+            questions.stopDo();
+          }}
+          onCancel={() => questions.stopDo()}
+        />
+      </Show>
       <Show when={asking()}>
         <TextField
           action="Ask"

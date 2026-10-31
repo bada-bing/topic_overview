@@ -254,6 +254,8 @@ function DiscussionPage(props: { base: string }) {
   // What I asked the agent about blocks, as the server last told it: with
   // the content, or after asking or dismissing.
   const [questions, setQuestions] = createSignal(() => view().questions);
+  // The block whose Do field the header's ▶ opened.
+  const [doing, setDoing] = createSignal<string | undefined>(undefined);
   const asking = {
     available: true,
     of: (block: string) => questions().filter((question) => question.block === block),
@@ -302,6 +304,27 @@ function DiscussionPage(props: { base: string }) {
           : undefined,
     forkBlocked: () => (agent() === "gone" ? "No Claude session runs in the discussion's pane, so there is none to fork" : undefined),
     working: () => agent() === "busy",
+    // Doing an item goes to the main agent, as a question of the kind do.
+    doItem: async (block: string, note: string) => {
+      const question = await readAnswer<Question>(
+        await fetch(`${base}/questions`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ block, prompt: note, kind: "do" }),
+        }),
+      );
+      setQuestions([...questions(), question]);
+    },
+    doing,
+    startDo: (block: string) => {
+      setDoing(block);
+      jump(block);
+    },
+    stopDo: () => setDoing(undefined),
+    // A suggested marker is applied to an item of the Action Plan only: a
+    // step of Task Progress is advanced by the task skill, which moves the
+    // phase with it.
+    applies: (block: string) => task()?.actions.some((item) => item.id === block) ?? false,
   };
 
   // What the agent says and does, read from its transcript as the server

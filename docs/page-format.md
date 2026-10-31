@@ -93,7 +93,7 @@ it is listed in the outline with the headings inside it.
 | Link to another page | `[[page name]]` | hovering previews the page; clicking opens it beside |
 | Label | `R2:` at the start of a block: capitals and a number, then a colon | names the block |
 | Mention of a label | `R2` anywhere else, such as `(R2)` | a link to the labelled block |
-| Task marker | `DONE`, `NOW` or `LATER` at the start of a block | the block's state |
+| Task marker | `DONE`, `NOW`, `WAITING` or `LATER` at the start of a block; `WAITING` is waiting on somebody else | the block's state |
 | Code block | a fenced block, ```` ``` ```` | code |
 | Table | a markdown table | the table; hovering a reference to the block previews it |
 | Diagram | a fenced block marked `mermaid` or `bpmn` | the diagram, or its error and source |
@@ -121,7 +121,10 @@ that stays in view:
 - the key, the first word of the first heading
 - the `phase`, coloured by the `status` from the frontmatter
 - the `NOW` step under the heading `Task Progress`, and the `NOW` items directly
-  under the heading `Action Plan`, each a link to its block
+  under the heading `Action Plan`, each a link to its block, and those
+  marked `WAITING` likewise
+- beside each, ▶, which asks the agent to do the item: a field for a note
+  opens under its block, and doing it is a question of the kind `do`
 
 The merge requests linked under its `Links` heading are the discussion's
 merge-request integrations, each shown with its state; one linked anywhere
@@ -163,7 +166,7 @@ discussion.
 | `integrations` | what the discussion depends on outside its source, each `id` being `<kind>:<reference>`, so one is never added twice; `label` and `detail` are what it is shown as. Merge requests are read off the page's Links and never kept here |
 | `ids` | the ids the tool gave blocks, each in a commit of its own, removed at close unless a `((reference))` anywhere in the knowledge base points at one |
 | `marks` | the blocks the agent changed that I have not confirmed seeing: the block's `id`, its `kind`, `changed`, `new`, `moved` or `removed`, and `before`, what it read before or where it was. A removed block has no id left, so its mark keeps its `text`, with `next`, the block that follows in its place, or `parent`, when it was the last child. A mark keeps the first kind it was given; a check in the view clears it |
-| `questions` | what I asked, until I dismiss it. Each is an exchange: the first prompt, then each follow-up, asked once the one before is answered, with `asked` and `answered` times. A question about a block has `block`, its id, and `text`, what the block read when asked; a general one has neither. `commit` is where the branch was. A question a fork answers has `session`, the fork's own session id, chosen when it is asked; its follow-ups continue that fork, and dismissing it deletes the fork's transcript |
+| `questions` | what I asked, until I dismiss it. A question of the `kind` `do` asks the main agent to carry the block's item out, its first prompt being my note, which may be empty; its answer says what was done, what is open and whom we wait on, and an exchange's `suggests`, `DONE` or `WAITING`, is the marker the agent suggests, which the view applies to an item of the Action Plan when I ask it to. The agent sets no marker itself. Each is an exchange: the first prompt, then each follow-up, asked once the one before is answered, with `asked` and `answered` times. A question about a block has `block`, its id, and `text`, what the block read when asked; a general one has neither. `commit` is where the branch was. A question a fork answers has `session`, the fork's own session id, chosen when it is asked; its follow-ups continue that fork, and dismissing it deletes the fork's transcript |
 | `closed` | the commit on `main` the discussion was squashed into, set while what is left of it is removed, so closing again finishes a removal that stopped part way |
 
 The integration kinds and their references:

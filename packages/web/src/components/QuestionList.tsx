@@ -28,8 +28,8 @@ export function QuestionList(props: { questions: Question[]; blockOf: (question:
                   class={["list-entry", state() === "answered" ? "question-answered" : "question-open"]}
                   href={question.block ? `#${question.block}` : undefined}
                 >
-                  <span class="list-entry-block">{isFork(question) ? `fork · ${state()}` : state()}</span>
-                  <span class="list-entry-body">{excerpt(last().prompt)}</span>
+                  <span class="list-entry-block">{question.kind === "do" ? `do · ${state()}` : isFork(question) ? `fork · ${state()}` : state()}</span>
+                  <span class="list-entry-body">{excerpt(last().prompt || question.text || "")}</span>
                 </a>
                 <span class={["mark-seen-wrap", "has-preview", "inline"]}>
                   <button

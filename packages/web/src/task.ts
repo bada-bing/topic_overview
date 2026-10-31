@@ -8,16 +8,18 @@ export interface TaskHeader {
   title: string;
   status: string;
   phase: string;
-  steps: Link[]; // the NOW step of Task Progress
-  actions: Link[]; // the NOW items of the Action Plan
+  steps: Link[]; // the NOW step of Task Progress, or one WAITING
+  actions: Link[]; // the NOW and WAITING items of the Action Plan
 }
 
+// An item in play: being worked on, or waiting on somebody else.
 export interface Link {
   id: string;
   text: string;
+  marker: "NOW" | "WAITING";
 }
 
-const NOW = /^NOW (.*)$/s;
+const IN_PLAY = /^(NOW|WAITING) (.*)$/s;
 
 export function frontmatter(page: Page): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -58,7 +60,7 @@ function findHeading(blocks: Block[], text: string): Block | undefined {
 
 function nowItems(blocks: Block[]): Link[] {
   return blocks.flatMap((block) => {
-    const match = NOW.exec(block.text);
-    return match ? [{ id: block.id, text: match[1].split("\n")[0] }] : [];
+    const match = IN_PLAY.exec(block.text);
+    return match ? [{ id: block.id, text: match[2].split("\n")[0], marker: match[1] as Link["marker"] }] : [];
   });
 }

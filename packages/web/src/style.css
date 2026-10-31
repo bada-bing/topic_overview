@@ -8,6 +8,7 @@
   --done: #1a7f37;
   --now: #bf8700;
   --now-tint: #fff8c5;
+  --waiting: #bc4c00;
   --tint: #ddf4ff;
   --tint-edge: #54aeff;
   font-family: system-ui, sans-serif;
@@ -27,6 +28,7 @@
     --done: #3fb950;
     --now: #d29922;
     --now-tint: #2e2a1c;
+    --waiting: #db6d28;
     --tint: #12263f;
     --tint-edge: #1f6feb;
   }
@@ -232,11 +234,40 @@ body {
   text-decoration: none;
 }
 
+.task-now-entry {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
 .task-now-item::before {
   content: "NOW ";
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8em;
   color: var(--now);
+}
+
+.task-now-item.marker-waiting::before {
+  content: "WAITING ";
+  color: var(--waiting);
+}
+
+/* Doing an item: the agent is asked to carry it out, beside its link. */
+.task-do {
+  font: inherit;
+  font-size: 0.75em;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--now);
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1.4;
+}
+
+.task-do:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 @media (max-width: 800px) {
@@ -410,6 +441,11 @@ a {
 .state-now {
   background: var(--now-tint);
   border-radius: 4px;
+}
+
+.state-waiting .marker {
+  border: 1px solid var(--waiting);
+  color: var(--waiting);
 }
 
 .state-later .marker {
@@ -1316,8 +1352,13 @@ main [id] {
   white-space: pre-wrap;
 }
 
-.question-further {
+.question-next {
+  display: flex;
+  gap: 6px;
   margin: 8px 0 0 calc(4.5em + 8px);
+}
+
+.question-further {
   font: inherit;
   font-size: 0.85rem;
   background: none;
@@ -1331,6 +1372,39 @@ main [id] {
 .question-further:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* What a do suggests the item becomes, with the button that applies it. */
+.question-suggestion {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0 calc(4.5em + 8px);
+  font-size: 0.85rem;
+}
+
+.question-suggestion .marker {
+  margin-right: 0;
+}
+
+.question-apply {
+  font: inherit;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--link);
+  cursor: pointer;
+  padding: 1px 8px;
+}
+
+.question-apply:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.question-suggestion-note {
+  color: var(--muted);
 }
 
 /* The questions I asked sit below the changes and are listed as they are,

@@ -7,7 +7,8 @@
 // branch has it; `…/blocks/<id>` a block's own text, read with GET and saved
 // with PUT from the Edit button; `…/marks/<id>` deleted when I
 // confirm I saw what the agent changed in a block; `…/questions` posted to ask
-// the agent about a block, `…/questions/<id>` posted to ask further and
+// the agent about a block, or to have it do the item a block names,
+// `…/questions/<id>` posted to ask further and
 // deleted when I dismiss it; `…/agent` posted to bring the agent's tmux window
 // up in the terminal; `…/prompt` posted to tell the agent something
 // general, typed into its window as it is; `…/worktree`
@@ -97,9 +98,15 @@ export async function handleTopic(
   }
   if (verb === "marks" && file && request.method === "DELETE") return send(response, 200, await store().clearMark(key, file));
   if (verb === "questions" && !file && request.method === "POST") {
-    const { block, prompt, fork: toFork } = await readJson<{ block?: unknown; prompt?: unknown; fork?: unknown }>(request);
+    const { block, prompt, fork: toFork, kind } = await readJson<{ block?: unknown; prompt?: unknown; fork?: unknown; kind?: unknown }>(request);
     if (typeof prompt !== "string") throw new StoreError("a question needs a prompt");
     if (block !== undefined && typeof block !== "string") throw new StoreError("a question's block is its id");
+    // Doing an item goes to the main agent, since doing it may change the
+    // source; the prompt is my note, which may be empty.
+    if (kind === "do") {
+      if (block === undefined) throw new StoreError("a do is about the block whose item it does");
+      return send(response, 200, await store().doItem(key, block, prompt));
+    }
     // A question for a fork of the main session, about a block or general,
     // is run once it is kept; the answer lands in the state as the agent's
     // does, and the page learns of it as it learns of any change.

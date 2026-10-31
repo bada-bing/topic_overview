@@ -10,6 +10,7 @@ export interface Context {
   nil?: boolean; // a property removed rather than set
   discard?: boolean; // a discussion closed with nothing merged
   freestyle?: boolean; // a topic opened with no task behind it
+  suggest?: string; // the marker a do's answer suggests for its item
 }
 
 // pnpm runs the command from the repository, and keeps the directory it was
@@ -18,7 +19,7 @@ export function context(
   sessionId: string | undefined,
   label?: string,
   places: Partial<Record<Place, string>> = {},
-  at: { line?: string; text?: string; nil?: boolean; discard?: boolean; freestyle?: boolean } = {},
+  at: { line?: string; text?: string; nil?: boolean; discard?: boolean; freestyle?: boolean; suggest?: string } = {},
 ): Context {
   const session = sessionId ? claudeSession(sessionId, process.env.INIT_CWD ?? process.cwd()) : undefined;
   const given = (Object.entries(places) as [Place, string | undefined][]).filter(([, address]) => address !== undefined);
@@ -27,7 +28,7 @@ export function context(
   if ((at.line === undefined) !== (at.text === undefined)) throw new StoreError("give both --line and --text");
   const line = at.line === undefined ? undefined : { line: Number(at.line), text: at.text! };
   if (line && !Number.isInteger(line.line)) throw new StoreError("--line takes a line number");
-  return { session, label, place, line, nil: at.nil, discard: at.discard, freestyle: at.freestyle };
+  return { session, label, place, line, nil: at.nil, discard: at.discard, freestyle: at.freestyle, suggest: at.suggest };
 }
 
 // A block given to be written, read from stdin.

@@ -3,9 +3,12 @@ import { Show, createSignal } from "solid-js";
 // A field for writing a question or a block's text. Ctrl or Cmd
 // with Enter saves it, Escape cancels it. A second action, such as asking a
 // fork rather than the agent, is a second button, and Shift with the keys.
+// A field whose text is optional, such as a note to a do, saves empty too.
 export function TextField(props: {
   initial?: string;
   action?: string;
+  optional?: boolean;
+  placeholder?: string;
   blocked?: string; // why the action cannot be taken now, which disables its button
   onSave: (body: string) => Promise<void>;
   secondary?: { action: string; title?: string; onSave: (body: string) => Promise<void> };
@@ -15,7 +18,7 @@ export function TextField(props: {
   let field: HTMLTextAreaElement | undefined;
   const submit = (to: (body: string) => Promise<void>) => {
     const body = field?.value.trim() ?? "";
-    if (!body) return;
+    if (!body && !props.optional) return;
     to(body).catch((failure: unknown) => setError(String(failure)));
   };
   const save = () => {
@@ -30,6 +33,7 @@ export function TextField(props: {
         }}
         rows={3}
         value={props.initial ?? ""}
+        placeholder={props.placeholder}
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
             if (event.shiftKey && props.secondary) submit(props.secondary.onSave);

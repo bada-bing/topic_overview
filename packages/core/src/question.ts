@@ -9,8 +9,15 @@
 // fork has `session`, its own session id, given when the question is asked,
 // and its follow-ups continue that fork. Dismissing the question ends the
 // fork, its transcript included.
+//
+// A question of the kind `do` asks the main agent to carry out the item a
+// block names rather than to talk about it. Its answer says what was done,
+// what is open, and whether we wait on somebody, and may suggest the marker
+// the item should carry now. The agent never sets the marker; I apply the
+// suggestion or not.
 export interface Question {
   id: string;
+  kind?: "do"; // none for a question asked about a block
   block?: string; // the block's id; none for a general question
   text?: string; // the block's own text when I asked
   commit: string; // the commit the discussion's branch was at when I asked
@@ -23,7 +30,13 @@ export interface Exchange {
   asked: string;
   answer?: string; // the agent's answer, once it has given one
   answered?: string;
+  suggests?: Suggestion; // the marker the agent suggests for the item, in answer to a do
 }
+
+// What a do may suggest the item becomes: done, or waiting on somebody else.
+// An item that stays NOW is suggested nothing.
+export type Suggestion = "DONE" | "WAITING";
+export const SUGGESTIONS: readonly Suggestion[] = ["DONE", "WAITING"];
 
 // A question a fork of the main session answers, rather than the main agent.
 export function isFork(question: Question): boolean {

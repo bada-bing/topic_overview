@@ -18,12 +18,12 @@ export type Part =
   | { kind: "codeblock"; language: string; code: string }
   | { kind: "table"; table: Table };
 
-export type Marker = "DONE" | "NOW" | "WAITING" | "LATER";
+export type Marker = "DONE" | "NOW" | "WAITING" | "LATER" | "OPEN";
 
 const FENCE = /```([^\n`]*)\n([\s\S]*?)```/g;
 const INLINE =
   /!\[([^\]\n]*)\]\(([^)\s]+)\)(\{:[^}\n]*\})?|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[\[([^\]\n]+)\]\]|\(\(([^()\s]+)\)\)|\[([^\]\n]+)\]\(\(\(([^()\s]+)\)\)\)|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)|(?<![*\w])\*([^*\n]+)\*(?![*\w])/g;
-const MARKER = /^(DONE|NOW|WAITING|LATER) /;
+const MARKER = /^(DONE|NOW|WAITING|LATER) |^(OPEN):? /;
 
 // A block's text in order: runs of inline text, fenced code blocks, and
 // tables.
@@ -75,8 +75,10 @@ function imageSize(size: string | undefined): { width?: number; height?: number 
   return { ...(width ? { width: Number(width[1]) } : {}), ...(height ? { height: Number(height[1]) } : {}) };
 }
 
-// A Logseq task marker at the start of a block, and the text after it.
+// A marker at the start of a block, and the text after it: a Logseq task
+// marker, or OPEN, which names a decision still to make and is written
+// with or without a colon.
 export function splitMarker(text: string): { marker?: Marker; text: string } {
   const match = MARKER.exec(text);
-  return match ? { marker: match[1] as Marker, text: text.slice(match[0].length) } : { text };
+  return match ? { marker: (match[1] ?? match[2]) as Marker, text: text.slice(match[0].length) } : { text };
 }

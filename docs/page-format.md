@@ -94,6 +94,7 @@ it is listed in the outline with the headings inside it.
 | Label | `R2:` at the start of a block: capitals and a number, then a colon | names the block |
 | Mention of a label | `R2` anywhere else, such as `(R2)` | a link to the labelled block |
 | Task marker | `DONE`, `NOW`, `WAITING` or `LATER` at the start of a block; `WAITING` is waiting on somebody else | the block's state |
+| Open decision | `OPEN` or `OPEN:` at the start of a block | the block's state: a decision still to make |
 | Code block | a fenced block, ```` ``` ```` | code |
 | Table | a markdown table | the table; hovering a reference to the block previews it |
 | Diagram | a fenced block marked `mermaid` or `bpmn` | the diagram, or its error and source |

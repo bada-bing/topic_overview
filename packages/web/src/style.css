@@ -453,6 +453,12 @@ a {
   color: var(--muted);
 }
 
+/* A decision still to make, in the colour of a question. */
+.state-open .marker {
+  border: 1px solid var(--question);
+  color: var(--question);
+}
+
 .tinted {
   background: var(--tint);
   border-radius: 4px;

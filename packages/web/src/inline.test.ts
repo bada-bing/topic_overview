@@ -64,6 +64,12 @@ test("a task marker is taken off the front of a block", () => {
   assert.deepEqual(splitMarker("NOWHERE else"), { text: "NOWHERE else" });
 });
 
+test("OPEN marks a decision still to make, with or without a colon", () => {
+  assert.deepEqual(splitMarker("OPEN how the sessions are found"), { marker: "OPEN", text: "how the sessions are found" });
+  assert.deepEqual(splitMarker("OPEN: how the sessions are found"), { marker: "OPEN", text: "how the sessions are found" });
+  assert.deepEqual(splitMarker("OPENED yesterday"), { text: "OPENED yesterday" });
+});
+
 test("an image is told from a link", () => {
   assert.deepEqual(parseInline("![plan](../assets/plan_1.png) and [docs](https://example.com)"), [
     { kind: "image", alt: "plan", src: "../assets/plan_1.png" },

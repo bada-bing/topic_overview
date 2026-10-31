@@ -7,6 +7,7 @@ import type { Mark } from "@topic-overview/core";
 // confirmed, so one writer works at a time.
 export interface Marks {
   of: (block: string) => Mark | undefined;
+  removed: (block: string) => Mark | undefined; // the mark of a block the agent removed, by the id it had
   removedBefore: (block: string) => Mark[]; // removed blocks whose place this block took
   removedAtEnd: (parent: string) => Mark[]; // removed blocks that ended this parent's children
   clear: (mark: Mark) => void;
@@ -15,6 +16,7 @@ export interface Marks {
 
 export const MarksContext = createContext<Marks>({
   of: () => undefined,
+  removed: () => undefined,
   removedBefore: () => [],
   removedAtEnd: () => [],
   clear: () => {},

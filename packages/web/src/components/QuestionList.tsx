@@ -3,6 +3,7 @@ import { For, Show } from "solid-js";
 import type { Block } from "@topic-overview/core";
 import { type Question, isFork } from "@topic-overview/core/question";
 
+import { useMarks } from "../marks.ts";
 import { blockedFor, standing, useQuestions } from "../questions.ts";
 import { excerpt } from "./ChangeList.tsx";
 import { Text } from "./Text.tsx";
@@ -10,9 +11,21 @@ import { Text } from "./Text.tsx";
 // The questions I asked about blocks, listed as the changes are and behaving
 // as they do: each says where it stands and what I asked last, choosing it
 // opens the way to its block, and its check dismisses it, as the ✕ under the
-// block does. Hovering the check shows the last answer.
+// block does. Hovering the check shows the last answer. A question about a
+// block the agent removed leads to where the block stood, where the line in
+// its place holds the question.
 export function QuestionList(props: { questions: Question[]; blockOf: (question: Question) => Block | undefined; working: boolean }) {
   const questions = useQuestions();
+  const marks = useMarks();
+  // Where choosing the question leads: its block, or the place of a removed
+  // one; a general question is about no block, so its entry leads nowhere.
+  const place = (question: Question) => {
+    if (!question.block) return undefined;
+    if (props.blockOf(question)) return question.block;
+    const removed = marks.removed(question.block);
+    return removed?.next ?? removed?.parent;
+  };
+  const removed = (question: Question) => question.block !== undefined && props.blockOf(question) === undefined;
   return (
     <Show when={props.questions.length > 0}>
       <section class="list-box change-list question-list">
@@ -23,12 +36,14 @@ export function QuestionList(props: { questions: Question[]; blockOf: (question:
             const state = () => standing(question, props.working);
             return (
               <div class="change-list-entry">
-                {/* A general question is about no block, so its entry leads nowhere. */}
                 <a
                   class={["list-entry", state() === "answered" ? "question-answered" : "question-open"]}
-                  href={question.block ? `#${question.block}` : undefined}
+                  href={place(question) ? `#${place(question)}` : undefined}
                 >
-                  <span class="list-entry-block">{question.kind === "do" ? `do · ${state()}` : isFork(question) ? `fork · ${state()}` : state()}</span>
+                  <span class="list-entry-block">
+                    {question.kind === "do" ? `do · ${state()}` : isFork(question) ? `fork · ${state()}` : state()}
+                    {removed(question) ? " · block removed" : ""}
+                  </span>
                   <span class="list-entry-body">{excerpt(last().prompt || question.text || "")}</span>
                 </a>
                 <span class={["mark-seen-wrap", "has-preview", "inline"]}>

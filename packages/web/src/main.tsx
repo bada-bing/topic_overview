@@ -177,12 +177,16 @@ function DiscussionPage(props: { base: string }) {
   const base = props.base;
 
   // A jump to a block, from the outline or a reference, opens its section,
-  // closes the others, and brings the block into view.
+  // closes the others, and brings the block into view, with the lines drawn
+  // for what the agent removed before it, since a removed block's entry
+  // leads to the block that took its place.
   const jump = (id: string) => {
     setUnfolded(reveal(foldTree(), id));
     point(id);
     flush();
-    document.getElementById(id)?.scrollIntoView({ block: "start" });
+    const block = document.getElementById(id);
+    const first = block?.closest("li")?.firstElementChild;
+    (first?.classList.contains("removed-line") ? first : block)?.scrollIntoView({ block: "start" });
   };
 
   onSettled(() => {
@@ -241,6 +245,7 @@ function DiscussionPage(props: { base: string }) {
   const marking = {
     // A removed block is gone from the page, so no block shows its mark.
     of: (block: string) => marks().find((mark) => mark.kind !== "removed" && mark.id === block),
+    removed: (block: string) => marks().find((mark) => mark.kind === "removed" && mark.id === block),
     // A removed block is drawn as a line where it stood: before the block that
     // took its place, or at the end of its parent's children.
     removedBefore: (block: string) => marks().filter((mark) => mark.kind === "removed" && mark.next === block),

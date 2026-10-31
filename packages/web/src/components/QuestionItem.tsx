@@ -10,12 +10,13 @@ import { TextField } from "./TextField.tsx";
 // A question I asked about a block, under the block until I dismiss it: an
 // exchange of what I asked and what the agent answered, in order. Once the
 // last answer has come, I can ask further. A block edited since I asked
-// shows what it read when I asked, since the exchange is about that.
+// shows what it read when I asked, since the exchange is about that, and
+// one the agent removed says so, under the line drawn in its place.
 // A do is the agent asked to carry the block's item out. Its answer may
 // suggest the marker the item carries now, which I apply with a button while
 // the item is still in play; the agent never sets it. Once answered, a do
 // is closed beside Ask further, as the ✕ dismisses it.
-export function QuestionItem(props: { question: Question; text: string }) {
+export function QuestionItem(props: { question: Question; text: string; removed?: boolean }) {
   const questions = useQuestions();
   const editing = useEditing();
   const isDo = () => props.question.kind === "do";
@@ -59,11 +60,21 @@ export function QuestionItem(props: { question: Question; text: string }) {
           ✕
         </button>
       </div>
-      <Show when={asked().trim() !== props.text.trim()}>
-        <div class="question-asked-about">
-          <span class="question-asked-label">This block has changed since you asked. Previously:</span>
-          <Text text={asked()} />
-        </div>
+      <Show
+        when={!props.removed}
+        fallback={
+          <div class="question-asked-about">
+            <span class="question-asked-label">The agent removed this block since you asked. It read:</span>
+            <Text text={asked()} />
+          </div>
+        }
+      >
+        <Show when={asked().trim() !== props.text.trim()}>
+          <div class="question-asked-about">
+            <span class="question-asked-label">This block has changed since you asked. Previously:</span>
+            <Text text={asked()} />
+          </div>
+        </Show>
       </Show>
       <For each={props.question.exchanges}>
         {(exchange) => (

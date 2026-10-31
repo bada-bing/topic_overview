@@ -1240,10 +1240,16 @@ main [id] {
 .removed-line {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin: 2px 0;
   --mark-colour: var(--mark-removed);
+}
+
+/* A question about the removed block takes the row under the line. */
+.removed-line .question {
+  flex-basis: 100%;
 }
 
 .removed-line hr {

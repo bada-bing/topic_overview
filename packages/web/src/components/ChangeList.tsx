@@ -2,7 +2,9 @@ import { For, Show } from "solid-js";
 
 import type { Block, Mark } from "@topic-overview/core";
 
+import { useQuestions } from "../questions.ts";
 import { MarkSeen, saidOf } from "./MarkSeen.tsx";
+import { HELD_BY_QUESTION } from "./RemovedLine.tsx";
 
 const EXCERPT = 60;
 
@@ -22,8 +24,11 @@ export function excerpt(text: string): string {
 // know where to look. Choosing one opens the way to its block; the check
 // confirms I saw it, as the one beside the block does. A removed block is
 // listed with what it read, struck through, and leads to where it stood: the
-// block that took its place, or its parent.
+// block that took its place, or its parent, and is kept while a question
+// about the block is.
 export function ChangeList(props: { marks: Mark[]; blockOf: (mark: Mark) => Block | undefined; onSeen: (mark: Mark) => void }) {
+  const questions = useQuestions();
+  const held = (mark: Mark) => (mark.kind === "removed" && mark.id && questions.of(mark.id).length > 0 ? HELD_BY_QUESTION : undefined);
   return (
     <Show when={props.marks.length > 0}>
       <section class="list-box change-list">
@@ -57,7 +62,7 @@ export function ChangeList(props: { marks: Mark[]; blockOf: (mark: Mark) => Bloc
                   <span class="list-entry-body">{excerpt(props.blockOf(mark)?.text ?? mark.text ?? "")}</span>
                 </a>
               </Show>
-              <MarkSeen mark={mark} onSeen={() => props.onSeen(mark)} inline />
+              <MarkSeen mark={mark} onSeen={() => props.onSeen(mark)} inline held={held(mark)} />
             </div>
           )}
         </For>

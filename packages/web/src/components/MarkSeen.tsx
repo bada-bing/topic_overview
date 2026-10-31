@@ -16,16 +16,18 @@ export function saidOf(mark: Mark): string {
 // The check that confirms I saw a change, beside its block or in the list of
 // changes. Hovering it shows what the block read before, or where it was
 // before a move; an added block has nothing before, and a block that read
-// nothing says so. While the agent works, it is disabled.
-export function MarkSeen(props: { mark: Mark; onSeen: () => void; inline?: boolean }) {
+// nothing says so. While the agent works, it is disabled, and so it is for
+// whatever else holds it, which `held` says.
+export function MarkSeen(props: { mark: Mark; onSeen: () => void; inline?: boolean; held?: string }) {
   const marks = useMarks();
+  const blocked = () => marks.blocked() ?? props.held;
   return (
     <span class={["mark-seen-wrap", "has-preview", { inline: !!props.inline }]}>
       <button
         type="button"
         class={["mark-seen", `mark-${props.mark.kind}`]}
-        title={marks.blocked()}
-        disabled={marks.blocked() !== undefined}
+        title={blocked()}
+        disabled={blocked() !== undefined}
         onClick={() => props.onSeen()}
       >
         ✓

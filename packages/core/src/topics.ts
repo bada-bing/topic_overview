@@ -23,7 +23,7 @@ import { deploymentReference } from "./cluster.ts";
 import { sessionDirectory } from "./fork.ts";
 import { processAddress, processWindow, startProcess } from "./process.ts";
 import { type Question, SUGGESTIONS, type Suggestion, isFork } from "./question.ts";
-import { type Session, claudeSession } from "./sessions.ts";
+import { type Session, claudeSession, readRecord, repositoryPath, runningSessions, sessionsStore, sourceRepositories, topicSessions } from "./sessions.ts";
 import { StoreError } from "./errors.ts";
 
 const run = promisify(execFile);
@@ -549,6 +549,61 @@ export class Topics {
       await run("tmux", ["new-window", "-d", "-t", `=${session}:`, "-n", name, "-c", this.worktree(key)]);
     }
     await raise(`=${session}:${name}`);
+  }
+
+  // The tmux session the discussion's sessions are opened in: the one the
+  // discussion names, or the one named after the key. It is never created
+  // here, since task_session.sh owns creating a task's; without it, nothing
+  // is opened and the view says so.
+  private async sessionsTmux(key: string): Promise<string> {
+    const session = (await this.read(key)).tmux?.session ?? key;
+    await run("tmux", ["has-session", "-t", `=${session}`]).catch(() => {
+      throw new StoreError(`no tmux session ${session}; task_session.sh creates it`);
+    });
+    return session;
+  }
+
+  // A new window in that tmux session, working in the directory, with the
+  // command typed into its shell, so the window outlives the command and
+  // the hook records and titles the session as one started by hand.
+  private async openSessionWindow(key: string, directory: string, command: string): Promise<void> {
+    const session = await this.sessionsTmux(key);
+    const where = existsSync(directory) ? directory : this.worktree(key);
+    const { stdout } = await run("tmux", ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", `=${session}:`, "-c", where]);
+    const pane = stdout.trim();
+    await this.type(pane, command);
+    await raise(pane);
+  }
+
+  // Brings up the window a session of the topic runs in.
+  async focusSession(key: string, id: string): Promise<void> {
+    await this.read(key);
+    const running = (await runningSessions()).get(id);
+    if (!running) throw new StoreError("the session does not run; resume it instead");
+    await raise(running.window);
+  }
+
+  // Resumes a session of the topic in a new window of its tmux session,
+  // in the directory the session ran in.
+  async resumeSession(key: string, id: string): Promise<void> {
+    await this.read(key);
+    const store = sessionsStore();
+    const record = store && existsSync(store) ? readRecord(store, id) : undefined;
+    if (!record || record.topic !== key) throw new StoreError(`no session ${id} on ${key}`);
+    if ((await runningSessions()).has(id)) throw new StoreError("the session runs already; its window is brought up instead");
+    if (record.agent !== "claude") throw new StoreError(`resuming a ${record.agent} session is not built`);
+    await this.openSessionWindow(key, record.directory, `claude --resume ${id}`);
+  }
+
+  // Starts a fresh session on the topic in a new window of its tmux
+  // session: where the topic's latest session ran, else in the first
+  // repository the page names that is on disk, else in the worktree.
+  async startSession(key: string): Promise<void> {
+    const { text } = await this.source(key);
+    const known = (await topicSessions(key))?.sessions ?? [];
+    const latest = known.filter((session) => existsSync(session.directory)).at(-1);
+    const repository = sourceRepositories(text).map((entry) => repositoryPath(entry)).find(Boolean);
+    await this.openSessionWindow(key, latest?.directory ?? repository ?? this.worktree(key), "claude");
   }
 
   // Adds what the discussion depends on outside its source, as the agent or

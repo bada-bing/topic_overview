@@ -16,6 +16,7 @@ import { Outline } from "./components/Outline.tsx";
 import { Section } from "./components/Section.tsx";
 import { SourceProblems, problemKey } from "./components/SourceProblems.tsx";
 import { AGENT_STATES, WorkLine } from "./components/Status.tsx";
+import { SessionBox } from "./components/SessionBox.tsx";
 import { TimeBox } from "./components/TimeBox.tsx";
 import { TaskHeader } from "./components/TaskHeader.tsx";
 import { TranscriptPanel } from "./components/TranscriptPanel.tsx";
@@ -224,6 +225,8 @@ function DiscussionPage(props: { base: string }) {
   // it was read.
   const [work, setWork] = createSignal<Work | undefined>(undefined);
   const [timeVersion, setTimeVersion] = createSignal(0);
+  // The topic's sessions are read again whenever the agent changes state.
+  const [sessionsVersion, setSessionsVersion] = createSignal(0);
   const concernsThis = (before: Work | undefined, now: Work | undefined) =>
     [before, now].some((state) => state?.kind === "task" && state.identity === view().key);
   const workLine = () => <WorkLine work={work()} topic={view().key} />;
@@ -406,6 +409,9 @@ function DiscussionPage(props: { base: string }) {
       if (change.kind === "source") return refresh(view);
       if (change.kind === "agent") {
         setAgentName(change.name);
+        // The sessions' running states follow the agent's: a change there
+        // is when one started, stopped or wants me.
+        setSessionsVersion(sessionsVersion() + 1);
         return setAgent(change.state);
       }
       if (change.kind === "conflict") return setConflict(change.files);
@@ -554,6 +560,7 @@ function DiscussionPage(props: { base: string }) {
             <Show when={task()}>
               <TimeBox base={base} version={timeVersion()} />
             </Show>
+            <SessionBox base={base} version={sessionsVersion()} />
           </aside>
           <div class="content">
             <Show

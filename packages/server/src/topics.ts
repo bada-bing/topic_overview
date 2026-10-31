@@ -32,6 +32,7 @@ import {
   type Work,
   activeWork,
   taskTime,
+  topicSessions,
   fork,
   forkModel,
   sessionDirectory,
@@ -51,7 +52,7 @@ import { focusTab, openTab } from "./browser.ts";
 import { INTERVALS, integrationState, integrationStates } from "./integrations.ts";
 import { KEPT, type Tail, tailTranscript } from "./transcript.ts";
 
-export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|prompt|worktree|time)(?:\/([^/]+))?)?$/;
+export const TOPIC = /^\/api\/topics\/([^/]+)(?:\/(integrations|events|assets|blocks|marks|questions|agent|prompt|worktree|time|sessions)(?:\/([^/]+))?)?$/;
 
 // A heartbeat the page can see, so it can tell a stream that died quietly.
 const HEARTBEAT = 10_000;
@@ -130,6 +131,18 @@ export async function handleTopic(
     return send(response, 200, asked);
   }
   if (verb === "questions" && file && request.method === "DELETE") return send(response, 200, await store().dismiss(key, file));
+  if (verb === "sessions" && request.method === "POST") {
+    const { action } = await readJson<{ action?: unknown }>(request);
+    if (!file && action === "start") await store().startSession(key);
+    else if (file && action === "resume") await store().resumeSession(key, file);
+    else if (file && action === "focus") await store().focusSession(key, file);
+    else throw new StoreError("a session is resumed or focused, and the topic's sessions started");
+    return send(response, 200, {});
+  }
+  if (verb === "sessions" && !file && request.method === "GET") {
+    await store().read(key);
+    return send(response, 200, (await topicSessions(key)) ?? { sessions: [], oneShots: { count: 0 } });
+  }
   if (verb === "time" && request.method === "GET") {
     await store().read(key);
     return send(response, 200, await taskTime(key));

@@ -15,8 +15,8 @@ export function saidOf(mark: Mark): string {
 
 // The check that confirms I saw a change, beside its block or in the list of
 // changes. Hovering it shows what the block read before, or where it was
-// before a move; an added block has nothing before. While the agent works,
-// it is disabled.
+// before a move; an added block has nothing before, and a block that read
+// nothing says so. While the agent works, it is disabled.
 export function MarkSeen(props: { mark: Mark; onSeen: () => void; inline?: boolean }) {
   const marks = useMarks();
   return (
@@ -34,7 +34,11 @@ export function MarkSeen(props: { mark: Mark; onSeen: () => void; inline?: boole
         <strong>This block was {saidOf(props.mark)}; the check confirms you saw it.</strong>
         <Show
           when={props.mark.kind === "removed" ? props.mark.text : props.mark.before}
-          fallback={<span class="mark-before-none">Nothing before: it is new.</span>}
+          fallback={
+            <span class="mark-before-none">
+              {props.mark.kind === "new" ? "Nothing before: it is new." : "It was empty."}
+            </span>
+          }
         >
           {(before) => (
             <>

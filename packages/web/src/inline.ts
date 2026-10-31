@@ -11,7 +11,7 @@ export type Inline =
   | { kind: "link"; text: string; href: string }
   | { kind: "image"; alt: string; src: string; width?: number; height?: number } // the size, when Logseq wrote one after the image
   | { kind: "page"; name: string }
-  | { kind: "reference"; id: string };
+  | { kind: "reference"; id: string; label?: string }; // the label, when written `[label](((id)))`
 
 export type Part =
   | { kind: "inline"; inlines: Inline[] }
@@ -22,7 +22,7 @@ export type Marker = "DONE" | "NOW" | "WAITING" | "LATER";
 
 const FENCE = /```([^\n`]*)\n([\s\S]*?)```/g;
 const INLINE =
-  /!\[([^\]\n]*)\]\(([^)\s]+)\)(\{:[^}\n]*\})?|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[\[([^\]\n]+)\]\]|\(\(([^()\s]+)\)\)|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)|(?<![*\w])\*([^*\n]+)\*(?![*\w])/g;
+  /!\[([^\]\n]*)\]\(([^)\s]+)\)(\{:[^}\n]*\})?|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[\[([^\]\n]+)\]\]|\(\(([^()\s]+)\)\)|\[([^\]\n]+)\]\(\(\(([^()\s]+)\)\)\)|\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)|(?<![*\w])\*([^*\n]+)\*(?![*\w])/g;
 const MARKER = /^(DONE|NOW|WAITING|LATER) /;
 
 // A block's text in order: runs of inline text, fenced code blocks, and
@@ -50,12 +50,13 @@ export function parseInline(text: string): Inline[] {
   let last = 0;
   for (const match of text.matchAll(INLINE)) {
     if (match.index > last) inlines.push({ kind: "text", text: text.slice(last, match.index) });
-    const [, alt, src, size, code, bold, page, reference, linkText, linkHref, url, italic] = match;
+    const [, alt, src, size, code, bold, page, reference, label, labelled, linkText, linkHref, url, italic] = match;
     if (src !== undefined) inlines.push({ kind: "image", alt, src, ...imageSize(size) });
     else if (code !== undefined) inlines.push({ kind: "code", text: code });
     else if (bold !== undefined) inlines.push({ kind: "bold", text: bold });
     else if (page !== undefined) inlines.push({ kind: "page", name: page });
     else if (reference !== undefined) inlines.push({ kind: "reference", id: reference });
+    else if (labelled !== undefined) inlines.push({ kind: "reference", id: labelled, label });
     else if (linkText !== undefined) inlines.push({ kind: "link", text: linkText, href: linkHref });
     else if (url !== undefined) inlines.push({ kind: "link", text: url, href: url });
     else inlines.push({ kind: "italic", text: italic });

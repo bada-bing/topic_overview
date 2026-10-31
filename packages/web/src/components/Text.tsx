@@ -59,7 +59,7 @@ function InlinePiece(props: { inline: Inline }) {
     case "page":
       return <PageLink name={inline.name} />;
     case "reference":
-      return <Reference id={inline.id} />;
+      return <Reference id={inline.id} label={inline.label} />;
     default:
       return <Mentions text={inline.text} />;
   }
@@ -103,23 +103,25 @@ const PREVIEW_LENGTH = 240;
 const PREVIEW_CHILDREN = 12;
 
 // A reference to a block: on this page, a link to it; on another page of
-// the knowledge base, its first line, linking to its page.
-function Reference(props: { id: string }) {
+// the knowledge base, its first line, linking to its page. A reference
+// written with a label, `[label](((id)))`, reads as the label either way.
+function Reference(props: { id: string; label?: string }) {
   const relate = useRelate();
   return (
     <Show
       when={relate.blockText(props.id) === undefined && relate.elsewhere(props.id)}
-      fallback={<BlockLink target={props.id} label={props.id} kind="reference" />}
+      fallback={<BlockLink target={props.id} label={props.label ?? props.id} kind="reference" />}
     >
-      {(found) => <ElsewhereLink id={props.id} found={found()} />}
+      {(found) => <ElsewhereLink id={props.id} label={props.label} found={found()} />}
     </Show>
   );
 }
 
-// A block on another page, shown as its first line. Hovering it shows its
-// page and the first line of each block under it; clicking it opens the
-// block in the column beside, zoomed in on it as Logseq does.
-function ElsewhereLink(props: { id: string; found: ElsewhereBlock }) {
+// A block on another page, shown as its first line, or as the reference's
+// label when it has one. Hovering it shows its page and the first line of
+// each block under it; clicking it opens the block in the column beside,
+// zoomed in on it as Logseq does.
+function ElsewhereLink(props: { id: string; label?: string; found: ElsewhereBlock }) {
   const openBlock = useContext(OpenBlockContext);
   const first = () => props.found.block.text.split("\n")[0];
   const children = () => props.found.block.children;
@@ -130,7 +132,7 @@ function ElsewhereLink(props: { id: string; found: ElsewhereBlock }) {
       tabindex="0"
       onClick={() => openBlock(props.id)}
     >
-      {first()}
+      {props.label ?? first()}
       <span class="preview">
         <span class="preview-property">{props.found.page}</span>
         <span class="preview-line">{first()}</span>

@@ -36,6 +36,12 @@ test("a reference to a block not on the page is a problem, named by its block", 
   ]);
 });
 
+test("a reference with a label counts as a reference", () => {
+  const page = parsePage("- See [the beds](((b2)))\n  id:: b1\n- Here\n  id:: b2\n- See [nothing](((gone)))\n  id:: b3\n");
+  assert.deepEqual([...relations(page).get("b1")!], ["b2"]);
+  assert.deepEqual(sourceProblems(page).map((problem) => problem.block), ["b3"]);
+});
+
 test("a reference to a block found on another page is no problem", () => {
   const page = parsePage("- Points at ((far))\n  id:: b1\n- Points at ((gone))\n  id:: b2\n");
   assert.deepEqual(

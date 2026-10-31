@@ -89,7 +89,7 @@ it is listed in the outline with the headings inside it.
 | Link to a GitLab merge request | a link ending in `/-/merge_requests/<number>`, on a host `TOPIC_OVERVIEW_GITLAB_HOSTS` lists | the link with the request's state: open, draft, merged or closed |
 | Image | `![alt](../assets/picture.png)`: a file in the knowledge base's `assets/`, with the size Logseq writes after one it resized, `{:height 300, :width 400}`, kept | its name; hovering previews it, and clicking opens it beside, at the size given and no wider than the column, the alt text under it as a caption and the size in the tooltip |
 | Link to a document | `[name](../assets/plan.md)`: a markdown file in the knowledge base's `assets/` | its name; hovering previews it, and clicking opens it beside, with its tables and diagrams drawn |
-| Reference to a block | `((7f1c…))` | a link to the block; hovering shows its text. A block on another page of the knowledge base is shown by its first line, linking to its page; hovering shows the lines under it |
+| Reference to a block | `((7f1c…))`, or `[label](((7f1c…)))` as Logseq writes a reference given a label | a link to the block, reading as the label when there is one; hovering shows its text. A block on another page of the knowledge base is shown by its first line, linking to its page; hovering shows the lines under it |
 | Link to another page | `[[page name]]` | hovering previews the page; clicking opens it beside |
 | Label | `R2:` at the start of a block: capitals and a number, then a colon | names the block |
 | Mention of a label | `R2` anywhere else, such as `(R2)` | a link to the labelled block |

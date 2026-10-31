@@ -34,6 +34,14 @@ test("a reference inside code stays code", () => {
   ]);
 });
 
+test("a reference with a label is a reference, not a link", () => {
+  assert.deepEqual(parseInline("what counts as a [source](((c748b61b))): each has a type"), [
+    { kind: "text", text: "what counts as a " },
+    { kind: "reference", id: "c748b61b", label: "source" },
+    { kind: "text", text: ": each has a type" },
+  ]);
+});
+
 test("links are recognised with and without a label", () => {
   assert.deepEqual(parseInline("[the prototype](https://claude.ai/x) or https://example.com/y"), [
     { kind: "link", text: "the prototype", href: "https://claude.ai/x" },
